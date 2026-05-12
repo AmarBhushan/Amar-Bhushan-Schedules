@@ -2,71 +2,36 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <!-- Crucial meta tags for iOS and mobile scaling -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Amar Bhushan Schedule</title>
   
-  <!-- Tailwind CSS -->
+  <!-- Load Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- React and ReactDOM -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Load React and ReactDOM -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
   
-  <!-- Babel for parsing JSX in the browser -->
+  <!-- Load Babel to compile JSX in the browser -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
   <style>
     :root { --sat: env(safe-area-inset-top); --sab: env(safe-area-inset-bottom); }
-    body { background-color: #f3f4f6; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
     .safe-top { padding-top: max(var(--sat), 1rem); }
     .pb-safe { padding-bottom: max(var(--sab), 1rem); }
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    body { -webkit-tap-highlight-color: transparent; }
   </style>
 </head>
-<body>
-  <div id="root" class="flex justify-center h-screen w-full bg-gray-100"></div>
+<body class="bg-gray-200">
+  <div id="root"></div>
 
   <script type="text/babel">
     const { useState, useEffect, useMemo } = React;
 
-    // Since we are in a single HTML file without node_modules, we use inline SVGs for icons.
-    const Icon = ({ name, size = 20, className = "" }) => {
-      const icons = {
-        Plus: <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>,
-        Trash2: <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>,
-        Calendar: <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>,
-        Clock: <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>,
-        Globe: <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>,
-        User: <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>,
-        Edit2: <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>,
-        ChevronDown: <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="6 9 12 15 18 9"></polyline></svg>,
-        Save: <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>,
-        X: <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-      };
-      return icons[name] || null;
-    };
-
-    // Polyfills for date-fns to keep it single-file
-    const startOfWeek = (date) => {
-      const d = new Date(date);
-      const day = d.getDay();
-      const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Start on Monday
-      return new Date(d.setDate(diff));
-    };
-    
-    const addDays = (date, days) => {
-      const d = new Date(date);
-      d.setDate(d.getDate() + days);
-      return d;
-    };
-
-    const isSameDay = (d1, d2) => {
-      return d1.getFullYear() === d2.getFullYear() && 
-             d1.getMonth() === d2.getMonth() && 
-             d1.getDate() === d2.getDate();
-    };
-
+    // Default Data
     const DEFAULT_TIMEZONES = [
       { value: 'Asia/Kolkata', label: 'India (IST)' },
       { value: 'America/New_York', label: 'USA Eastern (EST/EDT)' },
@@ -83,8 +48,29 @@
       { id: 'night', name: 'Night', color: 'bg-slate-100 border-slate-300 text-slate-800' },
     ];
 
+    const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+    const IconPlus = ({size=24, className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>;
+    const IconTrash2 = ({size=24, className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>;
+    const IconCalendar = ({size=24, className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>;
+    const IconClock = ({size=24, className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>;
+    const IconGlobe = ({size=24, className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>;
+    const IconUser = ({size=24, className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>;
+    const IconEdit2 = ({size=24, className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>;
+    const IconChevronDown = ({size=24, className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="6 9 12 15 18 9"></polyline></svg>;
+    const IconSave = ({size=24, className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>;
+    const IconX = ({size=24, className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
+
+    const isSameDay = (d1, d2) => d1.getDate() === d2.getDate() && d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear();
+    const addDays = (date, days) => new Date(date.getTime() + days * 86400000);
+    const startOfWeek = (date) => {
+      const d = new Date(date);
+      const day = d.getDay();
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+      return new Date(d.setDate(diff));
+    };
+
     function App() {
-      // Core State
       const [myTimeZone, setMyTimeZone] = useState('Asia/Kolkata');
       const [selectedDate, setSelectedDate] = useState(new Date());
       const [activeSlotFilter, setActiveSlotFilter] = useState('all');
@@ -99,6 +85,7 @@
         return saved ? JSON.parse(saved) : DEFAULT_TIMEZONES;
       });
 
+      // Schedule Data
       const [schedules, setSchedules] = useState(() => {
         const saved = localStorage.getItem('amar_schedules');
         return saved ? JSON.parse(saved) : [];
@@ -108,13 +95,11 @@
       const [isAddScheduleOpen, setIsAddScheduleOpen] = useState(false);
       const [editingScheduleId, setEditingScheduleId] = useState(null);
 
-      const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
       const [formData, setFormData] = useState({
-        dayOfWeek: new Date().getDay().toString(),
+        dayOfWeek: 'all', // Defaults to everyday
         slotTypeId: DEFAULT_SLOT_TYPES[0].id,
-        startTime: '12:30',
-        endTime: '13:30',
+        startTime: '05:00',
+        endTime: '06:00',
         studentName: '',
         grade: '',
         studentTimeZone: 'Australia/Sydney'
@@ -134,7 +119,7 @@
       const activeSchedules = useMemo(() => {
         const currentDayOfWeek = selectedDate.getDay().toString();
         return schedules.filter(sch => {
-          const matchDay = sch.dayOfWeek === currentDayOfWeek;
+          const matchDay = sch.dayOfWeek === currentDayOfWeek || sch.dayOfWeek === 'all';
           const matchSlot = activeSlotFilter === 'all' || sch.slotTypeId === activeSlotFilter;
           return matchDay && matchSlot;
         }).sort((a, b) => a.startTime.localeCompare(b.startTime));
@@ -144,18 +129,11 @@
         try {
           const [hours, minutes] = myTimeStr.split(':');
           const date = new Date(selectedDate);
-          date.setHours(parseInt(hours, 10));
-          date.setMinutes(parseInt(minutes, 10));
-          date.setSeconds(0);
-
-          const options = {
-            timeZone: studentTz,
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true
-          };
+          date.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0);
           
-          return new Intl.DateTimeFormat('en-US', options).format(date);
+          return new Intl.DateTimeFormat('en-US', {
+            timeZone: studentTz, hour: '2-digit', minute: '2-digit', hour12: true
+          }).format(date);
         } catch (e) {
           return 'Invalid Time';
         }
@@ -182,7 +160,7 @@
       const openAddModal = (date = selectedDate, slotType = slotDefinitions[0].id) => {
         setFormData({
           ...formData,
-          dayOfWeek: date.getDay().toString(),
+          dayOfWeek: 'all', // Set to Every Day by default
           slotTypeId: slotType,
           studentName: '',
           grade: ''
@@ -202,466 +180,125 @@
         setEditingScheduleId(null);
       };
 
-      const Header = () => (
-        <header className="bg-blue-600 text-white p-4 shadow-md sticky top-0 z-10 safe-top">
-          <div className="flex justify-between items-center mb-2">
-            <h1 className="text-2xl font-bold tracking-tight">Amar Bhushan Schedule</h1>
-            <button onClick={() => setIsSettingsOpen(!isSettingsOpen)} className="p-2 bg-blue-700 rounded-full hover:bg-blue-800 transition">
-              <Icon name="Globe" size={20} />
-            </button>
-          </div>
-          <div className="text-sm font-medium text-blue-100 flex items-center gap-1">
-            <Icon name="Calendar" size={14} />
-            {selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-            <span className="mx-2">|</span>
-            <Icon name="Clock" size={14} />
-            My Time: {timezones.find(t => t.value === myTimeZone)?.label || myTimeZone}
-          </div>
-        </header>
-      );
-
-      const WeekStrip = () => (
-        <div className="bg-white border-b shadow-sm overflow-x-auto no-scrollbar">
-          <div className="flex p-2 min-w-max">
-            {weekDates.map(date => {
-              const isSelected = isSameDay(date, selectedDate);
-              const dayOfWeekStr = date.getDay().toString();
-              const hasSchedules = schedules.some(s => s.dayOfWeek === dayOfWeekStr);
-              
-              return (
-                <div 
-                  key={date.toString()}
-                  onClick={() => setSelectedDate(date)}
-                  className={`flex flex-col items-center justify-center p-2 w-14 h-16 rounded-xl mx-1 cursor-pointer transition-all ${
-                    isSelected ? 'bg-blue-600 text-white shadow-md transform scale-105' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  <span className="text-xs uppercase font-semibold">{date.toLocaleDateString('en-US', { weekday: 'short' })}</span>
-                  <span className={`text-lg font-bold ${isSelected ? 'text-white' : 'text-gray-900'}`}>
-                    {date.getDate()}
-                  </span>
-                  {hasSchedules && !isSelected && (
-                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-1"></div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      );
-
-      const SlotFilters = () => (
-        <div className="p-4 flex gap-2 overflow-x-auto no-scrollbar pb-2">
-          <button
-            onClick={() => setActiveSlotFilter('all')}
-            className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-              activeSlotFilter === 'all' ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 text-gray-700'
-            }`}
-          >
-            All Slots
-          </button>
-          {slotDefinitions.map(slot => (
-            <button
-              key={slot.id}
-              onClick={() => setActiveSlotFilter(slot.id)}
-              className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                activeSlotFilter === slot.id ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 text-gray-700'
-              }`}
-            >
-              {slot.name}
-            </button>
-          ))}
-        </div>
-      );
-
-      const ScheduleList = () => {
-        if (activeSchedules.length === 0) {
-          return (
-            <div className="flex-1 flex flex-col items-center justify-center p-8 text-gray-400">
-              <Icon name="Calendar" size={48} className="mb-4 text-gray-300" />
-              <p className="text-lg font-medium text-gray-600">No time slots created.</p>
-              <p className="text-sm text-center mt-2">Tap the + button to create repeating availability slots for this day.</p>
-              <button 
-                onClick={() => openAddModal()}
-                className="mt-6 px-6 py-2 bg-blue-50 text-blue-600 rounded-full font-medium"
-              >
-                Create Slot
+      return (
+        <div className="flex flex-col h-screen bg-gray-100 font-sans antialiased text-gray-900 w-full max-w-md mx-auto relative overflow-hidden shadow-2xl ring-1 ring-gray-200">
+          
+          {/* HEADER */}
+          <header className="bg-blue-600 text-white p-4 shadow-md sticky top-0 z-10 safe-top">
+            <div className="flex justify-between items-center mb-2">
+              <h1 className="text-xl font-bold tracking-tight">Amar Bhushan Schedule</h1>
+              <button onClick={() => setIsSettingsOpen(!isSettingsOpen)} className="p-2 bg-blue-700 rounded-full hover:bg-blue-800 transition">
+                <IconGlobe size={20} />
               </button>
             </div>
-          );
-        }
+            <div className="text-sm font-medium text-blue-100 flex items-center gap-1">
+              <IconCalendar size={14} />
+              {selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+              <span className="mx-2">|</span>
+              <IconClock size={14} />
+              My Time: {timezones.find(t => t.value === myTimeZone)?.label || myTimeZone}
+            </div>
+          </header>
 
-        return (
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
-            {activeSchedules.map((sch) => {
-              const slotDef = slotDefinitions.find(s => s.id === sch.slotTypeId) || slotDefinitions[0];
-              const studentTzLabel = timezones.find(t => t.value === sch.studentTimeZone)?.label || sch.studentTimeZone;
-              const isVacant = !sch.studentName || sch.studentName.trim() === '';
-              
-              if (isVacant) {
-                return (
-                  <div key={sch.id} className="bg-green-50 rounded-2xl shadow-sm border border-green-200 overflow-hidden relative">
-                    <div className="absolute left-0 top-0 bottom-0 w-2 bg-green-500"></div>
-                    <div className="p-4 pl-5">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className={`text-xs font-bold px-2 py-1 rounded-md uppercase tracking-wide inline-block mb-1 bg-green-100 text-green-800 border-green-300`}>
-                          {slotDef.name} - VACANT
-                        </div>
-                        <div className="flex gap-2 text-gray-400">
-                           <button onClick={() => handleDeleteSchedule(sch.id)} className="hover:text-red-600" title="Delete Slot"><Icon name="Trash2" size={16} /></button>
-                        </div>
-                      </div>
-                      <div className="flex justify-between items-center mt-2">
-                        <div>
-                          <p className="text-sm font-semibold text-gray-700 flex items-center gap-1">
-                            <Icon name="Clock" size={14}/> {sch.startTime} - {sch.endTime}
-                          </p>
-                        </div>
-                        <button 
-                          onClick={() => openEditModal(sch)}
-                          className="px-4 py-1.5 bg-green-600 text-white text-sm font-medium rounded-full shadow-sm hover:bg-green-700 transition"
-                        >
-                          + Assign Student
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              }
-
-              return (
-                <div key={sch.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden relative">
-                  <div className="absolute left-0 top-0 bottom-0 w-2 bg-blue-500"></div>
-                  
-                  <div className="p-4 pl-5">
-                    <div className="flex justify-between items-start mb-2">
-                      <div className={`text-xs font-bold px-2 py-1 rounded-md uppercase tracking-wide inline-block mb-1 ${slotDef.color}`}>
-                        {slotDef.name}
-                      </div>
-                      <div className="flex gap-3 text-gray-400">
-                        <button onClick={() => handleUnassignStudent(sch.id)} className="hover:text-orange-500 text-xs font-medium border border-gray-200 px-2 rounded-md" title="Remove Student">Unassign</button>
-                        <button onClick={() => openEditModal(sch)} className="hover:text-blue-600"><Icon name="Edit2" size={16} /></button>
-                        <button onClick={() => handleDeleteSchedule(sch.id)} className="hover:text-red-600"><Icon name="Trash2" size={16} /></button>
-                      </div>
-                    </div>
-
-                    <h3 className="text-xl font-bold text-gray-900 mb-1 flex items-center gap-2">
-                      <Icon name="User" size={18} className="text-blue-500"/>
-                      {sch.studentName} {sch.grade && <span className="text-sm font-normal text-gray-500">({sch.grade})</span>}
-                    </h3>
-
-                    <div className="mt-4 bg-gray-50 rounded-xl p-3 border border-gray-100">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-xs text-gray-500 uppercase font-semibold mb-1 flex items-center gap-1">
-                            <Icon name="Clock" size={12}/> My Time
-                          </p>
-                          <p className="font-medium text-gray-900">{sch.startTime} - {sch.endTime}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500 uppercase font-semibold mb-1 flex items-center gap-1">
-                            <Icon name="Globe" size={12}/> Student Time
-                          </p>
-                          <p className="font-medium text-blue-700">{getStudentTime(sch.startTime, sch.studentTimeZone)}</p>
-                          <p className="text-[10px] text-gray-500 truncate" title={studentTzLabel}>{studentTzLabel.split(' ')[0]}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        );
-      };
-
-      const AvailableSlotsGrid = () => {
-        const currentDayOfWeek = selectedDate.getDay().toString();
-        
-        return (
-          <div className="px-4 pb-4">
-            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Daily Slot Overview</h3>
-            <div className="grid grid-cols-2 gap-3">
-              {slotDefinitions.map(slot => {
-                const daySlots = schedules.filter(s => s.dayOfWeek === currentDayOfWeek && s.slotTypeId === slot.id);
-                const totalSlots = daySlots.length;
-                const vacantSlots = daySlots.filter(s => !s.studentName || s.studentName.trim() === '').length;
-                
-                const hasSlots = totalSlots > 0;
-                const isFullyOccupied = hasSlots && vacantSlots === 0;
+          {/* WEEK STRIP */}
+          <div className="bg-white border-b shadow-sm overflow-x-auto no-scrollbar">
+            <div className="flex p-2 min-w-max">
+              {weekDates.map(date => {
+                const isSelected = isSameDay(date, selectedDate);
+                const dayOfWeekStr = date.getDay().toString();
+                const hasSchedules = schedules.some(s => s.dayOfWeek === dayOfWeekStr || s.dayOfWeek === 'all');
                 
                 return (
                   <div 
-                    key={slot.id} 
-                    onClick={() => {
-                      setActiveSlotFilter(slot.id);
-                      if(!hasSlots) openAddModal(selectedDate, slot.id);
-                    }}
-                    className={`p-3 rounded-xl border flex flex-col justify-between cursor-pointer transition-all ${
-                      isFullyOccupied 
-                        ? 'bg-blue-50 border-blue-200 opacity-90' 
-                        : hasSlots 
-                          ? 'bg-green-50 border-green-300 shadow-sm' 
-                          : 'bg-gray-50 border-gray-200 hover:bg-gray-100' 
+                    key={date.toString()}
+                    onClick={() => setSelectedDate(date)}
+                    className={`flex flex-col items-center justify-center p-2 w-14 h-16 rounded-xl mx-1 cursor-pointer transition-all ${
+                      isSelected ? 'bg-blue-600 text-white shadow-md transform scale-105' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
                     }`}
                   >
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="font-semibold text-gray-800">{slot.name}</span>
-                      {hasSlots && (
-                        <div className={`w-3 h-3 rounded-full ${vacantSlots > 0 ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-blue-500'}`}></div>
-                      )}
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      {hasSlots ? (
-                        <div className="flex flex-col">
-                          <span className="text-gray-800 font-medium">{totalSlots} Total Slots</span>
-                          <span className={vacantSlots > 0 ? "text-green-700 font-semibold" : "text-blue-700"}>
-                            {vacantSlots} Vacant
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-gray-500 font-medium flex items-center gap-1"><Icon name="Plus" size={14}/> Create Slot</span>
-                      )}
-                    </div>
+                    <span className="text-xs uppercase font-semibold">{date.toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                    <span className={`text-lg font-bold ${isSelected ? 'text-white' : 'text-gray-900'}`}>
+                      {date.getDate()}
+                    </span>
+                    {hasSchedules && !isSelected && (
+                      <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-1"></div>
+                    )}
                   </div>
                 );
               })}
             </div>
           </div>
-        );
-      };
-
-      const ScheduleFormModal = () => {
-        if (!isAddScheduleOpen) return null;
-
-        return (
-          <div className="fixed inset-0 bg-black/60 z-50 flex flex-col justify-end sm:justify-center sm:p-4 backdrop-blur-sm">
-            <div className="bg-white w-full sm:max-w-md sm:mx-auto rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
-              <div className="flex justify-between items-center p-4 border-b">
-                <h2 className="text-xl font-bold text-gray-800">{editingScheduleId ? 'Edit Slot' : 'Create New Slot'}</h2>
-                <button onClick={closeScheduleModal} className="p-2 bg-gray-100 rounded-full text-gray-600"><Icon name="X" size={20} /></button>
-              </div>
-              
-              <div className="overflow-y-auto p-4 flex-1">
-                <form id="schedule-form" onSubmit={handleSaveSchedule} className="space-y-4">
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Repeats On</label>
-                      <select 
-                        value={formData.dayOfWeek}
-                        onChange={(e) => setFormData({...formData, dayOfWeek: e.target.value})}
-                        className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-                      >
-                        {DAYS_OF_WEEK.map((day, idx) => <option key={idx} value={idx.toString()}>{day}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                      <select 
-                        value={formData.slotTypeId}
-                        onChange={(e) => setFormData({...formData, slotTypeId: e.target.value})}
-                        className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-                      >
-                        {slotDefinitions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="bg-blue-50 p-3 rounded-xl border border-blue-100">
-                    <h4 className="text-sm font-semibold text-blue-800 mb-2">Slot Timings (My Time)</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs text-blue-600 mb-1">Start Time</label>
-                        <input 
-                          type="time" 
-                          required
-                          value={formData.startTime}
-                          onChange={(e) => setFormData({...formData, startTime: e.target.value})}
-                          className="w-full p-2 border border-blue-200 rounded-lg outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-blue-600 mb-1">End Time</label>
-                        <input 
-                          type="time" 
-                          required
-                          value={formData.endTime}
-                          onChange={(e) => setFormData({...formData, endTime: e.target.value})}
-                          className="w-full p-2 border border-blue-200 rounded-lg outline-none"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 border-t">
-                    <div className="flex justify-between items-center mb-1">
-                      <label className="block text-sm font-medium text-gray-700">Student Name (Optional)</label>
-                      <span className="text-xs text-green-600 font-semibold bg-green-100 px-2 py-0.5 rounded">Leave empty for VACANT</span>
-                    </div>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. John Doe"
-                      value={formData.studentName}
-                      onChange={(e) => setFormData({...formData, studentName: e.target.value})}
-                      className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Grade / Level (Optional)</label>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. Grade 10, Python Basics"
-                      value={formData.grade}
-                      onChange={(e) => setFormData({...formData, grade: e.target.value})}
-                      className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Target Time Zone</label>
-                    <select 
-                      value={formData.studentTimeZone}
-                      onChange={(e) => setFormData({...formData, studentTimeZone: e.target.value})}
-                      className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-                    >
-                      {timezones.map(tz => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
-                    </select>
-                  </div>
-
-                </form>
-              </div>
-              
-              <div className="p-4 border-t bg-gray-50 pb-safe">
-                <button 
-                  type="submit" 
-                  form="schedule-form"
-                  className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-700 active:scale-[0.98] transition-all flex justify-center items-center gap-2"
-                >
-                  <Icon name="Save" size={20} />
-                  {editingScheduleId ? 'Save Slot Updates' : 'Create Slot'}
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-      };
-
-      const SettingsModal = () => {
-        if (!isSettingsOpen) return null;
-
-        const [newTzName, setNewTzName] = useState('');
-        const [newTzValue, setNewTzValue] = useState('');
-        const [newSlotName, setNewSlotName] = useState('');
-
-        const addTz = () => {
-          if(newTzName && newTzValue) {
-            setTimezones([...timezones, { label: newTzName, value: newTzValue }]);
-            setNewTzName(''); setNewTzValue('');
-          }
-        };
-
-        const addSlot = () => {
-          if(newSlotName) {
-            const id = newSlotName.toLowerCase().replace(/\s+/g, '-');
-            const colorClass = ['bg-pink-100 border-pink-300 text-pink-800', 'bg-teal-100 border-teal-300 text-teal-800', 'bg-purple-100 border-purple-300 text-purple-800'][slotDefinitions.length % 3];
-            setSlotDefinitions([...slotDefinitions, { id, name: newSlotName, color: colorClass }]);
-            setNewSlotName('');
-          }
-        };
-
-        const deleteSlot = (id) => {
-          if(slotDefinitions.length > 1) {
-            setSlotDefinitions(slotDefinitions.filter(s => s.id !== id));
-          }
-        };
-
-        return (
-          <div className="fixed inset-0 bg-gray-100 z-50 flex flex-col transition-transform">
-            <div className="bg-white border-b px-4 py-4 flex items-center gap-4 safe-top shadow-sm">
-              <button onClick={() => setIsSettingsOpen(false)} className="p-2 bg-gray-100 rounded-full text-gray-800">
-                <Icon name="ChevronDown" size={24} className="rotate-90" />
-              </button>
-              <h2 className="text-xl font-bold">App Settings</h2>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 space-y-8">
-              <section className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-                <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2"><Icon name="Clock" size={18}/> My Default Time Zone</h3>
-                <select 
-                  value={myTimeZone}
-                  onChange={(e) => setMyTimeZone(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-xl outline-none bg-gray-50"
-                >
-                  {timezones.map(tz => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
-                </select>
-              </section>
-
-              <section className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-                <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2"><Icon name="Calendar" size={18}/> Manage Slot Types</h3>
-                <p className="text-sm text-gray-500 mb-4">Define blocks like Morning, Afternoon, or specific hours.</p>
-                
-                <div className="space-y-2 mb-4">
-                  {slotDefinitions.map(slot => (
-                    <div key={slot.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border">
-                      <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${slot.color}`}>{slot.name}</span>
-                      <button onClick={() => deleteSlot(slot.id)} className="text-red-500 p-1"><Icon name="Trash2" size={16}/></button>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex gap-2">
-                  <input 
-                    type="text" placeholder="New slot name..." value={newSlotName} onChange={e => setNewSlotName(e.target.value)}
-                    className="flex-1 p-2 border rounded-lg outline-none"
-                  />
-                  <button onClick={addSlot} className="px-4 bg-blue-600 text-white rounded-lg font-medium">Add</button>
-                </div>
-              </section>
-
-              <section className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-                <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2"><Icon name="Globe" size={18}/> Saved Time Zones</h3>
-                
-                <div className="space-y-2 mb-4 max-h-48 overflow-y-auto">
-                  {timezones.map((tz, i) => (
-                    <div key={i} className="flex justify-between items-center p-2 border-b text-sm">
-                      <span>{tz.label}</span>
-                      <span className="text-gray-400 text-xs">{tz.value}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="space-y-2 p-3 bg-gray-50 rounded-xl border">
-                  <p className="text-xs font-semibold text-gray-500 uppercase">Add New Time Zone</p>
-                  <input 
-                    type="text" placeholder="Label (e.g. Japan)" value={newTzName} onChange={e => setNewTzName(e.target.value)}
-                    className="w-full p-2 border rounded-lg outline-none text-sm"
-                  />
-                  <input 
-                    type="text" placeholder="TZ String (e.g. Asia/Tokyo)" value={newTzValue} onChange={e => setNewTzValue(e.target.value)}
-                    className="w-full p-2 border rounded-lg outline-none text-sm font-mono"
-                  />
-                  <button onClick={addTz} className="w-full py-2 mt-2 bg-gray-800 text-white rounded-lg font-medium text-sm">Add Timezone</button>
-                </div>
-              </section>
-            </div>
-          </div>
-        );
-      };
-
-      return (
-        <div className="flex flex-col h-screen bg-gray-100 font-sans antialiased text-gray-900 w-full max-w-md mx-auto relative overflow-hidden shadow-2xl ring-1 ring-gray-200">
-          <Header />
-          <WeekStrip />
           
+          {/* MAIN CONTENT AREA */}
           <div className="flex-1 overflow-y-auto flex flex-col relative bg-gray-50">
-            <div className="sticky top-0 bg-gray-50/95 backdrop-blur z-10 border-b border-gray-200">
-               <SlotFilters />
+            <div className="sticky top-0 bg-gray-50/95 backdrop-blur z-10 border-b border-gray-200 p-4 flex gap-2 overflow-x-auto no-scrollbar pb-2">
+              <button
+                onClick={() => setActiveSlotFilter('all')}
+                className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  activeSlotFilter === 'all' ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 text-gray-700'
+                }`}
+              >
+                All Slots
+              </button>
+              {slotDefinitions.map(slot => (
+                <button
+                  key={slot.id}
+                  onClick={() => setActiveSlotFilter(slot.id)}
+                  className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                    activeSlotFilter === slot.id ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 text-gray-700'
+                  }`}
+                >
+                  {slot.name}
+                </button>
+              ))}
             </div>
             
-            <div className="mt-4">
-               <AvailableSlotsGrid />
+            {/* GRID OVERVIEW */}
+            <div className="mt-4 px-4 pb-4">
+              <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Daily Slot Overview</h3>
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                {slotDefinitions.map(slot => {
+                  const currentDayOfWeek = selectedDate.getDay().toString();
+                  const daySlots = schedules.filter(s => (s.dayOfWeek === currentDayOfWeek || s.dayOfWeek === 'all') && s.slotTypeId === slot.id);
+                  const totalSlots = daySlots.length;
+                  const vacantSlots = daySlots.filter(s => !s.studentName || s.studentName.trim() === '').length;
+                  const isFullyOccupied = totalSlots > 0 && vacantSlots === 0;
+                  
+                  return (
+                    <div 
+                      key={slot.id} 
+                      onClick={() => {
+                        setActiveSlotFilter(slot.id);
+                        if(totalSlots === 0) openAddModal(selectedDate, slot.id);
+                      }}
+                      className={`p-2 sm:p-3 rounded-xl border flex flex-col justify-between cursor-pointer transition-all min-w-0 ${
+                        isFullyOccupied ? 'bg-blue-50 border-blue-200 opacity-90' 
+                        : totalSlots > 0 ? 'bg-green-50 border-green-300 shadow-sm' 
+                        : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                      }`}
+                    >
+                      <div className="flex justify-between items-center mb-1 sm:mb-2 gap-1">
+                        <span className="font-semibold text-gray-800 text-sm sm:text-base truncate" title={slot.name}>{slot.name}</span>
+                        {totalSlots > 0 && (
+                          <div className={`shrink-0 w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full ${vacantSlots > 0 ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-blue-500'}`}></div>
+                        )}
+                      </div>
+                      <div className="text-xs sm:text-sm text-gray-600">
+                        {totalSlots > 0 ? (
+                          <div className="flex flex-col">
+                            <span className="text-gray-800 font-medium truncate">{totalSlots} Slots</span>
+                            <span className={`truncate ${vacantSlots > 0 ? "text-green-700 font-semibold" : "text-blue-700"}`}>
+                              {vacantSlots} Vacant
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-gray-500 font-medium flex items-center gap-1 truncate"><IconPlus className="shrink-0" size={14}/> Create Slot</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="px-4 py-2 flex items-center justify-between">
@@ -670,18 +307,240 @@
               </h2>
             </div>
 
-            <ScheduleList />
+            {/* LIST AREA */}
+            {activeSchedules.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center p-8 text-gray-400">
+                <IconCalendar size={48} className="mb-4 text-gray-300" />
+                <p className="text-lg font-medium text-gray-600">No time slots created.</p>
+                <p className="text-sm text-center mt-2">Tap the + button to create repeating availability slots for this day.</p>
+                <button 
+                  onClick={() => openAddModal()}
+                  className="mt-6 px-6 py-2 bg-blue-50 text-blue-600 rounded-full font-medium"
+                >
+                  Create Slot
+                </button>
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
+                {activeSchedules.map((sch) => {
+                  const slotDef = slotDefinitions.find(s => s.id === sch.slotTypeId) || slotDefinitions[0];
+                  const studentTzLabel = timezones.find(t => t.value === sch.studentTimeZone)?.label || sch.studentTimeZone;
+                  const isVacant = !sch.studentName || sch.studentName.trim() === '';
+                  
+                  if (isVacant) {
+                    return (
+                      <div key={sch.id} className="bg-green-50 rounded-2xl shadow-sm border border-green-200 overflow-hidden relative">
+                        <div className="absolute left-0 top-0 bottom-0 w-2 bg-green-500"></div>
+                        <div className="p-4 pl-5">
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="text-xs font-bold px-2 py-1 rounded-md uppercase tracking-wide inline-block mb-1 bg-green-100 text-green-800 border-green-300">
+                              {slotDef.name} - VACANT
+                            </div>
+                            <button onClick={() => handleDeleteSchedule(sch.id)} className="text-gray-400 hover:text-red-600"><IconTrash2 size={16} /></button>
+                          </div>
+                          <div className="flex justify-between items-center mt-2">
+                            <p className="text-sm font-semibold text-gray-700 flex items-center gap-1">
+                              <IconClock size={14}/> {sch.startTime} - {sch.endTime}
+                            </p>
+                            <button 
+                              onClick={() => openEditModal(sch)}
+                              className="px-4 py-1.5 bg-green-600 text-white text-sm font-medium rounded-full shadow-sm hover:bg-green-700 transition"
+                            >
+                              + Assign Student
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div key={sch.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden relative">
+                      <div className="absolute left-0 top-0 bottom-0 w-2 bg-blue-500"></div>
+                      <div className="p-4 pl-5">
+                        <div className="flex justify-between items-start mb-2">
+                          <div className={`text-xs font-bold px-2 py-1 rounded-md uppercase tracking-wide inline-block mb-1 ${slotDef.color}`}>
+                            {slotDef.name}
+                          </div>
+                          <div className="flex gap-3 text-gray-400">
+                            <button onClick={() => handleUnassignStudent(sch.id)} className="hover:text-orange-500 text-xs font-medium border border-gray-200 px-2 rounded-md">Unassign</button>
+                            <button onClick={() => openEditModal(sch)} className="hover:text-blue-600"><IconEdit2 size={16} /></button>
+                            <button onClick={() => handleDeleteSchedule(sch.id)} className="hover:text-red-600"><IconTrash2 size={16} /></button>
+                          </div>
+                        </div>
+                        <h3 className="text-xl font-bold text-gray-900 mb-1 flex items-center gap-2">
+                          <IconUser size={18} className="text-blue-500"/>
+                          {sch.studentName} {sch.grade && <span className="text-sm font-normal text-gray-500">({sch.grade})</span>}
+                        </h3>
+                        <div className="mt-4 bg-gray-50 rounded-xl p-3 border border-gray-100">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-xs text-gray-500 uppercase font-semibold mb-1 flex items-center gap-1"><IconClock size={12}/> My Time</p>
+                              <p className="font-medium text-gray-900">{sch.startTime} - {sch.endTime}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500 uppercase font-semibold mb-1 flex items-center gap-1"><IconGlobe size={12}/> Student Time</p>
+                              <p className="font-medium text-blue-700">{getStudentTime(sch.startTime, sch.studentTimeZone)}</p>
+                              <p className="text-[10px] text-gray-500 truncate">{studentTzLabel.split(' ')[0]}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
+          {/* ADD BUTTON */}
           <button 
             onClick={() => openAddModal()}
             className="absolute bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg shadow-blue-300 flex items-center justify-center hover:bg-blue-700 hover:scale-105 active:scale-95 transition-all z-20"
           >
-            <Icon name="Plus" size={28} />
+            <IconPlus size={28} />
           </button>
 
-          <ScheduleFormModal />
-          <SettingsModal />
+          {}
+          {isAddScheduleOpen && (
+            <div className="fixed inset-0 bg-black/60 z-50 flex flex-col justify-end sm:justify-center sm:p-4 backdrop-blur-sm">
+              <div className="bg-white w-full sm:max-w-md sm:mx-auto rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
+                <div className="flex justify-between items-center p-4 border-b">
+                  <h2 className="text-xl font-bold text-gray-800">{editingScheduleId ? 'Edit Slot' : 'Create New Slot'}</h2>
+                  <button onClick={closeScheduleModal} className="p-2 bg-gray-100 rounded-full text-gray-600"><IconX size={20} /></button>
+                </div>
+                
+                <div className="overflow-y-auto p-4 flex-1">
+                  <form id="schedule-form" onSubmit={handleSaveSchedule} className="space-y-4">
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Repeats On</label>
+                        <select 
+                          value={formData.dayOfWeek}
+                          onChange={(e) => setFormData({...formData, dayOfWeek: e.target.value})}
+                          className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                        >
+                          <option value="all">Every Day</option>
+                          {DAYS_OF_WEEK.map((day, idx) => <option key={idx} value={idx.toString()}>{day}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                        <select 
+                          value={formData.slotTypeId}
+                          onChange={(e) => setFormData({...formData, slotTypeId: e.target.value})}
+                          className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                        >
+                          {slotDefinitions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* iOS Time Input Fixes applied here */}
+                    <div className="bg-blue-50 p-3 rounded-xl border border-blue-100">
+                      <h4 className="text-sm font-semibold text-blue-800 mb-2">Slot Timings (My Time)</h4>
+                      <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                        <div className="min-w-0">
+                          <label className="block text-xs text-blue-600 mb-1">Start Time</label>
+                          <input 
+                            type="time" 
+                            required
+                            value={formData.startTime}
+                            onChange={(e) => setFormData({...formData, startTime: e.target.value})}
+                            className="min-w-0 w-full px-1.5 py-2 text-sm appearance-none border border-blue-200 rounded-lg outline-none bg-white"
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <label className="block text-xs text-blue-600 mb-1">End Time</label>
+                          <input 
+                            type="time" 
+                            required
+                            value={formData.endTime}
+                            onChange={(e) => setFormData({...formData, endTime: e.target.value})}
+                            className="min-w-0 w-full px-1.5 py-2 text-sm appearance-none border border-blue-200 rounded-lg outline-none bg-white"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t">
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="block text-sm font-medium text-gray-700">Student Name (Optional)</label>
+                        <span className="text-xs text-green-600 font-semibold bg-green-100 px-2 py-0.5 rounded">Leave empty for VACANT</span>
+                      </div>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. John Doe"
+                        value={formData.studentName}
+                        onChange={(e) => setFormData({...formData, studentName: e.target.value})}
+                        className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Grade / Level (Optional)</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. Grade 10, Python Basics"
+                        value={formData.grade}
+                        onChange={(e) => setFormData({...formData, grade: e.target.value})}
+                        className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Target Time Zone</label>
+                      <select 
+                        value={formData.studentTimeZone}
+                        onChange={(e) => setFormData({...formData, studentTimeZone: e.target.value})}
+                        className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                      >
+                        {timezones.map(tz => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
+                      </select>
+                    </div>
+
+                  </form>
+                </div>
+                
+                <div className="p-4 border-t bg-gray-50 pb-safe">
+                  <button 
+                    type="submit" 
+                    form="schedule-form"
+                    className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-700 active:scale-[0.98] transition-all flex justify-center items-center gap-2"
+                  >
+                    <IconSave size={20} />
+                    {editingScheduleId ? 'Save Slot Updates' : 'Create Slot'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {}
+          {isSettingsOpen && (
+            <div className="fixed inset-0 bg-gray-100 z-50 flex flex-col">
+              <div className="bg-white border-b px-4 py-4 flex items-center gap-4 safe-top shadow-sm">
+                <button onClick={() => setIsSettingsOpen(false)} className="p-2 bg-gray-100 rounded-full text-gray-800">
+                  <IconChevronDown size={24} className="rotate-90" />
+                </button>
+                <h2 className="text-xl font-bold">App Settings</h2>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-4 space-y-8">
+                <section className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                  <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2"><IconClock size={18}/> My Default Time Zone</h3>
+                  <select 
+                    value={myTimeZone}
+                    onChange={(e) => setMyTimeZone(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-xl outline-none bg-gray-50"
+                  >
+                    {timezones.map(tz => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
+                  </select>
+                </section>
+              </div>
+            </div>
+          )}
         </div>
       );
     }
