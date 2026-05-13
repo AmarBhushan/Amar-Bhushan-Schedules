@@ -187,13 +187,20 @@
 
       const generateMessage = (sch, viewDate) => {
         const greeting = getGreeting(sch.startTime, sch.studentTimeZone);
-        const namePart = sch.studentName ? ` ${sch.studentName.split(' ')[0]}` : '';
         const dateStr = viewDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
         const timeStr = getStudentTime(sch.startTime, sch.studentTimeZone);
+        const tzLabel = timezones.find(t => t.value === sch.studentTimeZone)?.label.split(' ')[0] || '';
         
-        let msg = `${greeting}${namePart},\n\nJust a reminder that we have a session scheduled on ${dateStr} at ${timeStr} (Your Time).`;
-        if (meetingLink) msg += `\n\nMeeting Link: ${meetingLink}`;
-        msg += `\n\nBest regards,\nAmar Bhushan`;
+        let msg = `${greeting} Ma’am/Sir,\n\nThis is a gentle reminder for today’s Maths Session.\n`;
+        msg += `📅 Date: ${dateStr}\n`;
+        msg += `⏰ Time: ${timeStr} (${tzLabel})\n`;
+        msg += `👨‍🏫 Student Name: ${sch.studentName}\n`;
+        if (meetingLink) msg += `🔗 Meeting Link: ${meetingLink}\n`;
+        msg += `\n📝 Kindly ensure that the student joins the meeting 5 minutes before the scheduled time with:\n`;
+        msg += `• Notebook\n• Pen/Pencil\n• Calculator (if required)\n• Completed Homework/Worksheets\n\n`;
+        msg += `Please make sure the internet connection and device are ready before the session starts to avoid interruptions.\n\n`;
+        msg += `Thank you.\nAmar Bhushan`;
+        
         return msg;
       };
 
@@ -226,6 +233,28 @@
         setSelectedSlotDetails(null);
       };
 
+      const handleAddSlotDefinition = (name) => {
+        if (!name.trim()) return;
+        const id = name.toLowerCase().replace(/\W/g, '') + Date.now();
+        const colors = ['bg-pink-100 border-pink-300 text-pink-800', 'bg-teal-100 border-teal-300 text-teal-800', 'bg-purple-100 border-purple-300 text-purple-800', 'bg-cyan-100 border-cyan-300 text-cyan-800'];
+        const color = colors[slotDefinitions.length % colors.length];
+        setSlotDefinitions([...slotDefinitions, { id, name, color }]);
+        showToast("Category Added");
+      };
+
+      const handleUpdateSlotDefinition = (id, newName) => {
+        setSlotDefinitions(slotDefinitions.map(s => s.id === id ? { ...s, name: newName } : s));
+      };
+
+      const handleDeleteSlotDefinition = (id) => {
+        if (slotDefinitions.length <= 1) return showToast("Cannot delete last category");
+        setSlotDefinitions(slotDefinitions.filter(s => s.id !== id));
+        if (activeSlotFilter === id) setActiveSlotFilter('all');
+        const remaining = slotDefinitions.filter(s => s.id !== id);
+        setSchedules(schedules.map(sch => sch.slotTypeId === id ? { ...sch, slotTypeId: remaining[0].id } : sch));
+        showToast("Category Deleted");
+      };
+
       // Helper function to execute the action after user confirms
       const handleConfirmAction = () => {
         if (!confirmDialog) return;
@@ -233,6 +262,8 @@
           handleDeleteSchedule(confirmDialog.id);
         } else if (confirmDialog.action === 'unassign') {
           handleUnassignStudent(confirmDialog.id);
+        } else if (confirmDialog.action === 'deleteCategory') {
+          handleDeleteSlotDefinition(confirmDialog.id);
         }
         setConfirmDialog(null); // Close the dialog after execution
       };
@@ -342,34 +373,36 @@
             </div>
             
             {/* Vertical Week List */}
-            <div className="p-4 flex flex-col gap-5">
+            <div className="p-4 flex flex-col gap-5 relative z-0">
               {weekDates.map(date => {
                 const daySlots = getSlotsForDate(date);
                 const isToday = toDateString(date) === toDateString(new Date());
                 
                 return (
-                  <div key={date.toString()} className={`bg-white rounded-2xl border ${isToday ? 'border-blue-300 shadow-md ring-1 ring-blue-100' : 'border-gray-200 shadow-sm'} overflow-hidden`}>
+                  <div key={date.toString()} className={`bg-white rounded-2xl border ${isToday ? 'border-blue-300 shadow-md ring-1 ring-blue-100' : 'border-gray-200 shadow-sm'} overflow-hidden flex flex-col`}>
                     
                     {/* Day Header */}
-                    <div className={`px-4 py-2 border-b flex justify-between items-center ${isToday ? 'bg-blue-50' : 'bg-gray-50'}`}>
-                      <h3 className={`font-bold ${isToday ? 'text-blue-700' : 'text-gray-800'}`}>
-                        {date.toLocaleDateString('en-US', { weekday: 'long' })}
-                        <span className="text-gray-500 font-normal ml-2 text-sm">{date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-                      </h3>
+                    <div className={`px-4 py-3 border-b flex justify-between items-center ${isToday ? 'bg-blue-50' : 'bg-gray-50'}`}>
+                      <div className="flex-1 min-w-0 pr-3">
+                        <h3 className={`font-bold truncate text-base sm:text-lg ${isToday ? 'text-blue-700' : 'text-gray-800'}`}>
+                          {date.toLocaleDateString('en-US', { weekday: 'long' })}
+                          <span className="text-gray-500 font-normal ml-2 text-sm whitespace-nowrap">{date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                        </h3>
+                      </div>
                       <button 
                         onClick={() => openAddModal({ dayOfWeek: date.getDay().toString() })}
-                        className="p-1 text-gray-400 hover:text-blue-600 transition bg-white rounded-full border shadow-sm"
+                        className="shrink-0 p-1.5 text-gray-400 hover:text-blue-600 transition bg-white rounded-full border shadow-sm"
                       >
-                        <Icons.Plus size={16} />
+                        <Icons.Plus size={18} />
                       </button>
                     </div>
 
                     {/* Horizontal Slots List */}
-                    <div className="p-3">
+                    <div className="p-3 sm:p-4 bg-white relative z-0">
                       {daySlots.length === 0 ? (
-                        <div className="text-center py-4 text-sm text-gray-400 font-medium">No slots</div>
+                        <div className="text-center py-6 text-sm text-gray-400 font-medium">No slots created</div>
                       ) : (
-                        <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
+                        <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2 pt-1 px-1 -mx-1 snap-x">
                           {daySlots.map(sch => {
                             const isVacant = !sch.studentName;
                             const slotDef = slotDefinitions.find(s => s.id === sch.slotTypeId) || slotDefinitions[0];
@@ -379,10 +412,10 @@
                               <div 
                                 key={sch.id}
                                 onClick={() => setSelectedSlotDetails({ sch, date })}
-                                className={`shrink-0 w-48 rounded-xl border p-3 cursor-pointer transition active:scale-95 flex flex-col justify-between ${
+                                className={`snap-start shrink-0 w-52 rounded-xl border p-3.5 cursor-pointer transition active:scale-95 flex flex-col justify-between select-none ${
                                   isVacant ? 'bg-green-50 border-green-200' : 
                                   isDemo ? 'bg-yellow-50 border-yellow-400 ring-1 ring-yellow-200' : 
-                                  'bg-white border-gray-200 hover:border-blue-300'
+                                  'bg-white border-gray-200 hover:border-blue-300 shadow-sm hover:shadow'
                                 }`}
                               >
                                 <div>
@@ -393,17 +426,17 @@
                                     {isDemo && !isVacant && <span className="text-[10px] bg-yellow-400 text-yellow-900 font-bold px-1.5 py-0.5 rounded uppercase tracking-wide">Demo</span>}
                                   </div>
                                   
-                                  <h4 className={`font-bold truncate text-sm mt-1 ${isVacant ? 'text-green-700' : 'text-gray-900'}`}>
+                                  <h4 className={`font-bold truncate text-sm mt-1.5 ${isVacant ? 'text-green-700' : 'text-gray-900'}`}>
                                     {isVacant ? 'VACANT' : sch.studentName}
                                   </h4>
                                 </div>
                                 
-                                <div className="mt-2 flex justify-between items-center">
-                                  <span className={`text-[10px] px-2 py-0.5 rounded font-semibold uppercase ${slotDef.color}`}>
+                                <div className="mt-3 flex justify-between items-center">
+                                  <span className={`text-[10px] px-2 py-1 rounded font-semibold uppercase ${slotDef.color}`}>
                                     {slotDef.name}
                                   </span>
                                   {!isVacant && (
-                                    <span className="text-[10px] text-gray-500 font-medium max-w-[60px] truncate">
+                                    <span className="text-[10px] text-gray-500 font-medium max-w-[70px] truncate">
                                       {timezones.find(t => t.value === sch.studentTimeZone)?.label.split(' ')[0]}
                                     </span>
                                   )}
@@ -636,14 +669,20 @@
                              </label>
 
                              <div className="grid grid-cols-2 gap-3">
-                               <input 
-                                 type="text" placeholder="Grade/Level" value={formData.grade} onChange={(e) => setFormData({...formData, grade: e.target.value})}
-                                 className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-                               />
-                               <input 
-                                 type="tel" placeholder="WhatsApp (e.g. +61...)" value={formData.whatsapp} onChange={(e) => setFormData({...formData, whatsapp: e.target.value})}
-                                 className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-                               />
+                               <div>
+                                 <label className="block text-xs font-bold text-gray-500 mb-1">Grade/Level</label>
+                                 <input 
+                                   type="text" placeholder="e.g. Grade 10" value={formData.grade} onChange={(e) => setFormData({...formData, grade: e.target.value})}
+                                   className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                                 />
+                               </div>
+                               <div>
+                                 <label className="block text-xs font-bold text-gray-500 mb-1">WhatsApp Number</label>
+                                 <input 
+                                   type="tel" placeholder="e.g. +61..." value={formData.whatsapp} onChange={(e) => setFormData({...formData, whatsapp: e.target.value})}
+                                   className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                                 />
+                               </div>
                              </div>
 
                              <div>
@@ -683,6 +722,37 @@
 
               <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-24">
                 
+                <section className="bg-white p-4 rounded-2xl shadow-sm border border-gray-200">
+                  <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2"><Icons.Calendar size={18}/> Manage Slot Categories</h3>
+                  <p className="text-xs text-gray-500 mb-3">Rename categories or add new ones (e.g. Late Night, Weekend).</p>
+                  <div className="space-y-2 mb-4">
+                     {slotDefinitions.map(slot => (
+                        <div key={slot.id} className="flex gap-2 items-center">
+                           <input
+                             type="text"
+                             value={slot.name}
+                             onChange={(e) => handleUpdateSlotDefinition(slot.id, e.target.value)}
+                             className="flex-1 p-2 border border-gray-300 rounded-lg outline-none text-sm focus:ring-2 focus:ring-blue-500 bg-gray-50 focus:bg-white"
+                           />
+                           <button 
+                             onClick={() => setConfirmDialog({ action: 'deleteCategory', id: slot.id, title: 'Delete Category', message: `Are you sure you want to delete ${slot.name}? All schedules in this category will be moved to another.` })} 
+                             className="p-2 text-red-500 hover:bg-red-50 rounded-lg border border-transparent hover:border-red-200 transition"
+                           >
+                             <Icons.Trash size={16}/>
+                           </button>
+                        </div>
+                     ))}
+                  </div>
+                  <div className="flex gap-2 pt-3 border-t border-gray-100">
+                     <input id="new-slot-name" type="text" placeholder="New category name..." className="flex-1 p-2 border border-gray-300 rounded-lg outline-none text-sm"/>
+                     <button onClick={() => {
+                         const el = document.getElementById('new-slot-name');
+                         handleAddSlotDefinition(el.value);
+                         el.value = '';
+                     }} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold transition shadow-sm">Add</button>
+                  </div>
+                </section>
+
                 <section className="bg-white p-4 rounded-2xl shadow-sm border border-gray-200">
                   <h3 className="font-bold text-gray-900 mb-2 flex items-center gap-2"><Icons.Link size={18}/> Default Meeting Link</h3>
                   <p className="text-xs text-gray-500 mb-3">This link will be included when copying or sharing reminders.</p>
