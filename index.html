@@ -36,9 +36,22 @@
     const DEFAULT_TIMEZONES = [
       { value: 'Asia/Kolkata', label: 'India (IST)' },
       { value: 'America/New_York', label: 'USA Eastern (EST/EDT)' },
+      { value: 'America/Chicago', label: 'USA Central (CST/CDT)' },
+      { value: 'America/Denver', label: 'USA Mountain (MST/MDT)' },
       { value: 'America/Los_Angeles', label: 'USA Pacific (PST/PDT)' },
+      { value: 'America/Anchorage', label: 'USA Alaska (AKST/AKDT)' },
+      { value: 'Pacific/Honolulu', label: 'USA Hawaii (HST)' },
+      { value: 'Australia/Sydney', label: 'Australia Eastern (AEST/AEDT)' },
+      { value: 'Australia/Brisbane', label: 'Australia Queensland (AEST)' },
+      { value: 'Australia/Adelaide', label: 'Australia Central (ACST/ACDT)' },
+      { value: 'Australia/Perth', label: 'Australia Western (AWST)' },
+      { value: 'America/Toronto', label: 'Canada Eastern (EST/EDT)' },
+      { value: 'America/Winnipeg', label: 'Canada Central (CST/CDT)' },
+      { value: 'America/Edmonton', label: 'Canada Mountain (MST/MDT)' },
+      { value: 'America/Vancouver', label: 'Canada Pacific (PST/PDT)' },
+      { value: 'America/Halifax', label: 'Canada Atlantic (AST/ADT)' },
+      { value: 'America/St_Johns', label: 'Canada Newfoundland (NST/NDT)' },
       { value: 'Europe/London', label: 'UK (GMT/BST)' },
-      { value: 'Australia/Sydney', label: 'Australia (AEST/AEDT)' },
       { value: 'Asia/Dubai', label: 'UAE (GST)' },
     ];
 
@@ -84,6 +97,7 @@
 
     function App() {
       const [myTimeZone, setMyTimeZone] = useState(() => localStorage.getItem('amar_myTz') || 'Asia/Kolkata');
+      const [headerTz, setHeaderTz] = useState(() => localStorage.getItem('amar_headerTz') || 'Australia/Sydney');
       const [meetingLink, setMeetingLink] = useState(() => localStorage.getItem('amar_meetingLink') || '');
       
       const [selectedWeekStart, setSelectedWeekStart] = useState(startOfWeek(new Date()));
@@ -98,7 +112,12 @@
 
       const [timezones, setTimezones] = useState(() => {
         const saved = localStorage.getItem('amar_timezones');
-        return saved ? JSON.parse(saved) : DEFAULT_TIMEZONES;
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          const missing = DEFAULT_TIMEZONES.filter(d => !parsed.some(p => p.value === d.value));
+          return [...parsed, ...missing];
+        }
+        return DEFAULT_TIMEZONES;
       });
 
       const [schedules, setSchedules] = useState(() => {
@@ -125,13 +144,21 @@
         studentTimeZone: 'Australia/Sydney'
       });
 
+      const [currentTime, setCurrentTime] = useState(new Date());
+
+      useEffect(() => {
+         const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+         return () => clearInterval(timer);
+      }, []);
+
       useEffect(() => {
         localStorage.setItem('amar_schedules', JSON.stringify(schedules));
         localStorage.setItem('amar_slotDefs', JSON.stringify(slotDefinitions));
         localStorage.setItem('amar_timezones', JSON.stringify(timezones));
         localStorage.setItem('amar_myTz', myTimeZone);
+        localStorage.setItem('amar_headerTz', headerTz);
         localStorage.setItem('amar_meetingLink', meetingLink);
-      }, [schedules, slotDefinitions, timezones, myTimeZone, meetingLink]);
+      }, [schedules, slotDefinitions, timezones, myTimeZone, headerTz, meetingLink]);
 
       const showToast = (msg) => {
         setToastMsg(msg);
@@ -185,23 +212,18 @@
         }
       };
 
-      const generateMessage = (sch, viewDate) => {
+      const generateMessage = (sch, viewDate, isBooking = false) => {
         const greeting = getGreeting(sch.startTime, sch.studentTimeZone);
-        const dateStr = viewDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+        const dateStr = viewDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+        const dayStr = viewDate.toLocaleDateString('en-US', { weekday: 'long' });
         const timeStr = getStudentTime(sch.startTime, sch.studentTimeZone);
         const tzLabel = timezones.find(t => t.value === sch.studentTimeZone)?.label.split(' ')[0] || '';
         
-        let msg = `${greeting} Ma’am/Sir,\n\nThis is a gentle reminder for today’s Maths Session.\n`;
-        msg += `📅 Date: ${dateStr}\n`;
-        msg += `⏰ Time: ${timeStr} (${tzLabel})\n`;
-        msg += `👨‍🏫 Student Name: ${sch.studentName}\n`;
-        if (meetingLink) msg += `🔗 Meeting Link: ${meetingLink}\n`;
-        msg += `\n📝 Kindly ensure that the student joins the meeting 5 minutes before the scheduled time with:\n`;
-        msg += `• Notebook\n• Pen/Pencil\n• Calculator (if required)\n• Completed Homework/Worksheets\n\n`;
-        msg += `Please make sure the internet connection and device are ready before the session starts to avoid interruptions.\n\n`;
-        msg += `Thank you.\nAmar Bhushan`;
-        
-        return msg;
+        if (sch.isDemo && isBooking) {
+          return `${greeting},\nThank you for booking the demo class for Maths.\n\nPlease find the class details below:\n📅 Date: ${dateStr}\n⏰ Time: ${timeStr} (${tzLabel})\n🔗 Meeting Link: ${meetingLink}\n\nKindly ensure that the student joins the session 5 minutes before the scheduled time with:\n✔ Notebook\n✔ Pen/Pencil\n✔ Calculator (if required)\n✔ Previous worksheets/books (if applicable)\n\nThe demo class will help assess the student’s current level, understanding, and learning requirements so that proper planning can be done for future sessions.\nIn case of any issue joining the meeting, please inform me beforehand.\nLooking forward to meeting you and the student.\n\nThanks,\nAmar Bhushan`;
+        } else {
+          return `${greeting},\n\nThis is a reminder for our session.\n📅 Time: ${dayStr}, ${timeStr} (${tzLabel})\n\n🔗 Link: ${meetingLink}\n\nThanks,\nAmar Bhushan`;
+        }
       };
 
       const handleDateChange = (e) => {
@@ -325,8 +347,20 @@
           <header className="bg-blue-600 text-white p-4 shadow-md sticky top-0 z-10 safe-top">
             <div className="flex justify-between items-center mb-2">
               <h1 className="text-xl font-bold tracking-tight">Amar's Schedule</h1>
-              <div className="flex gap-2 relative">
-                <div className="relative p-2 bg-blue-700 rounded-full hover:bg-blue-800 transition overflow-hidden">
+              <div className="flex gap-2 relative items-center">
+                {/* Category Dropdown */}
+                <select 
+                  value={activeSlotFilter}
+                  onChange={(e) => setActiveSlotFilter(e.target.value)}
+                  className="bg-blue-700 text-white text-sm font-medium rounded-lg p-1.5 outline-none border border-blue-500 max-w-[120px] truncate"
+                >
+                  <option value="all">All Categories</option>
+                  {slotDefinitions.map(slot => (
+                    <option key={slot.id} value={slot.id}>{slot.name}</option>
+                  ))}
+                </select>
+                
+                <div className="relative p-2 bg-blue-700 rounded-full hover:bg-blue-800 transition overflow-hidden shrink-0">
                    <Icons.Calendar size={20} />
                    <input 
                      type="date" 
@@ -335,42 +369,40 @@
                      className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
                    />
                 </div>
-                <button onClick={() => setIsSettingsOpen(true)} className="p-2 bg-blue-700 rounded-full hover:bg-blue-800 transition">
+                <button onClick={() => setIsSettingsOpen(true)} className="p-2 bg-blue-700 rounded-full hover:bg-blue-800 transition shrink-0">
                   <Icons.Settings size={20} />
                 </button>
               </div>
             </div>
-            <div className="text-sm font-medium text-blue-100 flex items-center gap-1 bg-blue-700/50 p-2 rounded-lg">
-              <Icons.Clock size={16} />
-              My Time: {timezones.find(t => t.value === myTimeZone)?.label || myTimeZone}
+            
+            {/* Dual Timezone Display */}
+            <div className="flex flex-col gap-1 mt-3">
+               <div className="text-sm font-medium text-blue-100 flex items-center justify-between bg-blue-700/50 p-2 rounded-lg">
+                 <div className="flex items-center gap-1">
+                   <Icons.Clock size={16} />
+                   My Time: {currentTime.toLocaleTimeString('en-US', { timeZone: myTimeZone, hour: '2-digit', minute: '2-digit' })}
+                 </div>
+                 <div className="text-xs text-blue-300 truncate max-w-[100px]">{timezones.find(t => t.value === myTimeZone)?.label.split(' ')[0]}</div>
+               </div>
+               
+               <div className="text-sm font-medium text-blue-100 flex items-center justify-between bg-indigo-700/50 p-2 rounded-lg border border-indigo-500/30">
+                 <div className="flex items-center gap-1">
+                   <Icons.Globe size={16} />
+                   Their Time: {currentTime.toLocaleTimeString('en-US', { timeZone: headerTz, hour: '2-digit', minute: '2-digit' })}
+                 </div>
+                 <select 
+                   value={headerTz}
+                   onChange={(e) => setHeaderTz(e.target.value)}
+                   className="bg-transparent text-xs text-indigo-200 outline-none max-w-[120px] text-right appearance-none font-medium truncate underline underline-offset-2"
+                 >
+                   {timezones.map(tz => <option key={tz.value} value={tz.value} className="text-gray-900">{tz.label.split(' ')[0]}</option>)}
+                 </select>
+               </div>
             </div>
           </header>
 
           {/* Main Content Area - Vertical Days & Horizontal Slots */}
           <div className="flex-1 overflow-y-auto flex flex-col pb-24">
-            
-            {/* Filter Chips */}
-            <div className="bg-gray-50 border-b border-gray-200 p-3 flex gap-2 overflow-x-auto no-scrollbar sticky top-0 z-10">
-              <button
-                onClick={() => setActiveSlotFilter('all')}
-                className={`whitespace-nowrap px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
-                  activeSlotFilter === 'all' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300'
-                }`}
-              >
-                All
-              </button>
-              {slotDefinitions.map(slot => (
-                <button
-                  key={slot.id}
-                  onClick={() => setActiveSlotFilter(slot.id)}
-                  className={`whitespace-nowrap px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
-                    activeSlotFilter === slot.id ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300'
-                  }`}
-                >
-                  {slot.name}
-                </button>
-              ))}
-            </div>
             
             {/* Vertical Week List */}
             <div className="p-4 flex flex-col gap-5 relative z-0">
@@ -517,27 +549,45 @@
                       </div>
 
                       {/* Actions */}
-                      <div className="mt-4 grid grid-cols-2 gap-2">
-                         <button 
-                           onClick={() => {
-                             const msg = generateMessage(selectedSlotDetails.sch, selectedSlotDetails.date);
-                             if(selectedSlotDetails.sch.whatsapp) {
-                               const phone = selectedSlotDetails.sch.whatsapp.replace(/\D/g,'');
-                               window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
-                             } else {
-                               showToast("No WhatsApp number provided");
-                             }
-                           }}
-                           className={`flex items-center justify-center gap-2 py-2 rounded-lg font-medium text-sm transition ${selectedSlotDetails.sch.whatsapp ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
-                         >
-                            <Icons.MessageCircle size={16}/> Send WhatsApp
-                         </button>
-                         <button 
-                           onClick={() => copyToClipboard(generateMessage(selectedSlotDetails.sch, selectedSlotDetails.date))}
-                           className="flex items-center justify-center gap-2 bg-blue-50 text-blue-700 hover:bg-blue-100 py-2 rounded-lg font-medium text-sm transition"
-                         >
-                            <Icons.Copy size={16}/> Copy Reminder
-                         </button>
+                      <div className="mt-4 flex flex-col gap-2">
+                         {selectedSlotDetails.sch.isDemo && (
+                           <button 
+                             onClick={() => {
+                               const msg = generateMessage(selectedSlotDetails.sch, selectedSlotDetails.date, true);
+                               if(selectedSlotDetails.sch.whatsapp) {
+                                 const phone = selectedSlotDetails.sch.whatsapp.replace(/\D/g,'');
+                                 window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+                               } else {
+                                 showToast("No WhatsApp number provided");
+                               }
+                             }}
+                             className={`flex items-center justify-center gap-2 py-2 rounded-lg font-bold text-sm transition ${selectedSlotDetails.sch.whatsapp ? 'bg-yellow-100 text-yellow-800 border border-yellow-300 hover:bg-yellow-200' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+                           >
+                              <Icons.MessageCircle size={16}/> Send Demo Booking Details
+                           </button>
+                         )}
+                         <div className="grid grid-cols-2 gap-2">
+                           <button 
+                             onClick={() => {
+                               const msg = generateMessage(selectedSlotDetails.sch, selectedSlotDetails.date, false);
+                               if(selectedSlotDetails.sch.whatsapp) {
+                                 const phone = selectedSlotDetails.sch.whatsapp.replace(/\D/g,'');
+                                 window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+                               } else {
+                                 showToast("No WhatsApp number provided");
+                               }
+                             }}
+                             className={`flex items-center justify-center gap-2 py-2 rounded-lg font-medium text-sm transition ${selectedSlotDetails.sch.whatsapp ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+                           >
+                              <Icons.MessageCircle size={16}/> Send Reminder
+                           </button>
+                           <button 
+                             onClick={() => copyToClipboard(generateMessage(selectedSlotDetails.sch, selectedSlotDetails.date, false))}
+                             className="flex items-center justify-center gap-2 bg-blue-50 text-blue-700 hover:bg-blue-100 py-2 rounded-lg font-medium text-sm transition"
+                           >
+                              <Icons.Copy size={16}/> Copy Reminder
+                           </button>
+                         </div>
                       </div>
                     </div>
                   )}
@@ -634,8 +684,15 @@
 
                     {/* Timings */}
                     <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
-                      <h4 className="text-sm font-bold text-gray-700 mb-2">Timings (My Time)</h4>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <h4 className="text-sm font-bold text-gray-700">Timings (My Time)</h4>
+                        {formData.studentTimeZone && formData.startTime && (
+                          <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold border border-blue-200 truncate max-w-[150px]">
+                            Sees: {getStudentTime(formData.startTime, formData.studentTimeZone)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 sm:gap-4">
                         <div className="min-w-0">
                           <label className="block text-xs text-gray-500 mb-1">Start Time</label>
                           <input type="time" required value={formData.startTime} onChange={(e) => setFormData({...formData, startTime: e.target.value})} className="min-w-0 w-full p-2 text-sm appearance-none border border-gray-300 rounded-lg outline-none bg-white"/>
