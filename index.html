@@ -123,7 +123,24 @@
 
       const [schedules, setSchedules] = useState(() => {
         const saved = localStorage.getItem('amar_schedules');
-        return saved ? JSON.parse(saved) : [];
+        let parsed = saved ? JSON.parse(saved) : [];
+        
+        // Migration: Automatically split any legacy "Every Day" slots into 7 independent slots
+        const hasLegacyAll = parsed.some(s => s.dayOfWeek === 'all');
+        if (hasLegacyAll) {
+            let newSch = [];
+            parsed.forEach(s => {
+                if (s.dayOfWeek === 'all') {
+                    DAYS_OF_WEEK.forEach((_, idx) => {
+                        newSch.push({ ...s, dayOfWeek: idx.toString(), id: s.id + '_split_' + idx });
+                    });
+                } else {
+                    newSch.push(s);
+                }
+            });
+            parsed = newSch;
+        }
+        return parsed;
       });
 
       const [students, setStudents] = useState(() => {
@@ -136,7 +153,9 @@
       const [isAddModalOpen, setIsAddModalOpen] = useState(false);
       const [selectedSlotDetails, setSelectedSlotDetails] = useState(null);
       const [editingScheduleId, setEditingScheduleId] = useState(null);
-      const [confirmDialog, setConfirmDialog] = useState(null); // Added state for the confirmation popup
+      const [confirmDialog, setConfirmDialog] = useState(null);
+      const [editingStudentInfo, setEditingStudentInfo] = useState(null);
+      const [showStudentSuggestions, setShowStudentSuggestions] = useState(false);
 
       const [formData, setFormData] = useState({
         dayOfWeek: 'all', 
@@ -240,6 +259,31 @@
         setSelectedWeekStart(startOfWeek(d));
       };
 
+      const handleUpdateStudent = (updatedStudent) => {
+        const oldStudent = students.find(s => s.id === updatedStudent.id);
+        if (!oldStudent) return;
+
+        // Update the student in the directory
+        setStudents(students.map(s => s.id === updatedStudent.id ? updatedStudent : s));
+
+        // Globally update this student's details in ALL their existing slots
+        setSchedules(schedules.map(sch => {
+            if (sch.studentName && sch.studentName.toLowerCase() === oldStudent.name.toLowerCase()) {
+                return {
+                    ...sch,
+                    studentName: updatedStudent.name,
+                    grade: updatedStudent.grade,
+                    whatsapp: updatedStudent.whatsapp,
+                    studentTimeZone: updatedStudent.timeZone
+                };
+            }
+            return sch;
+        }));
+        
+        setEditingStudentInfo(null);
+        showToast("Student Updated Globally");
+      };
+
       const handleSaveSchedule = (e) => {
         e.preventDefault();
         const payload = { ...formData, isDemo: formData.isDemo || false };
@@ -263,11 +307,29 @@
            }
         }
 
+        let newSchedules = [...schedules];
+
+        // Process creation or editing, splitting "all" into independent days
         if (editingScheduleId) {
-          setSchedules(schedules.map(sch => sch.id === editingScheduleId ? { ...payload, id: editingScheduleId } : sch));
+             if (payload.dayOfWeek === 'all') {
+                 newSchedules = newSchedules.filter(s => s.id !== editingScheduleId);
+                 DAYS_OF_WEEK.forEach((_, idx) => {
+                     newSchedules.push({ ...payload, dayOfWeek: idx.toString(), id: Date.now().toString() + '_' + idx });
+                 });
+             } else {
+                 newSchedules = newSchedules.map(sch => sch.id === editingScheduleId ? { ...payload, id: editingScheduleId } : sch);
+             }
         } else {
-          setSchedules([...schedules, { ...payload, id: Date.now().toString() }]);
+             if (payload.dayOfWeek === 'all') {
+                 DAYS_OF_WEEK.forEach((_, idx) => {
+                     newSchedules.push({ ...payload, dayOfWeek: idx.toString(), id: Date.now().toString() + '_' + idx });
+                 });
+             } else {
+                 newSchedules.push({ ...payload, id: Date.now().toString() });
+             }
         }
+
+        setSchedules(newSchedules);
         setIsAddModalOpen(false);
         setEditingScheduleId(null);
         setSelectedSlotDetails(null);
@@ -773,25 +835,47 @@
                       </div>
                       
                       <div className="space-y-3">
-                         <input 
-                           type="text" 
-                           list="student-suggestions"
-                           placeholder="Student Name (e.g. John Doe)" 
-                           value={formData.studentName} 
-                           onChange={(e) => {
-                             const val = e.target.value;
-                             const matched = students.find(s => s.name.toLowerCase() === val.toLowerCase());
-                             if (matched) {
-                               setFormData({...formData, studentName: matched.name, grade: matched.grade, whatsapp: matched.whatsapp, studentTimeZone: matched.timeZone});
-                             } else {
-                               setFormData({...formData, studentName: val});
-                             }
-                           }}
-                           className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-                         />
-                         <datalist id="student-suggestions">
-                           {students.map(s => <option key={s.id} value={s.name} />)}
-                         </datalist>
+                         {/* Student Name Input with Custom Dropdown */}
+                         <div className="relative">
+                           <input 
+                             type="text" 
+                             placeholder="Student Name (e.g. John Doe)" 
+                             value={formData.studentName} 
+                             onFocus={() => setShowStudentSuggestions(true)}
+                             onBlur={() => setTimeout(() => setShowStudentSuggestions(false), 200)}
+                             onChange={(e) => {
+                               setFormData({...formData, studentName: e.target.value});
+                               setShowStudentSuggestions(true);
+                             }}
+                             className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                           />
+                           
+                           {showStudentSuggestions && (
+                             <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                               {students.filter(s => s.name.toLowerCase().includes(formData.studentName.toLowerCase())).map(s => (
+                                 <div 
+                                   key={s.id} 
+                                   className="p-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-0 transition"
+                                   onClick={() => {
+                                     setFormData({...formData, studentName: s.name, grade: s.grade, whatsapp: s.whatsapp, studentTimeZone: s.timeZone});
+                                     setShowStudentSuggestions(false);
+                                   }}
+                                 >
+                                   <div className="font-bold text-gray-800 text-sm flex justify-between">
+                                     <span>{s.name}</span>
+                                     <span className="text-blue-600 text-xs font-semibold">Select</span>
+                                   </div>
+                                   <div className="text-xs text-gray-500 mt-0.5 truncate">
+                                     {s.grade ? `Grade: ${s.grade} • ` : ''}{timezones.find(t=>t.value===s.timeZone)?.label || s.timeZone}
+                                   </div>
+                                 </div>
+                               ))}
+                               {students.filter(s => s.name.toLowerCase().includes(formData.studentName.toLowerCase())).length === 0 && (
+                                 <div className="p-3 text-sm text-gray-500 italic">Type to save as a new student...</div>
+                               )}
+                             </div>
+                           )}
+                         </div>
                          
                          {/* Extra fields only if student is assigned */}
                          {formData.studentName && (
@@ -944,22 +1028,46 @@
                     <div className="text-center py-10 text-gray-500 font-medium">No students added yet. <br/><span className="text-sm font-normal">Students are automatically added here when you assign them to a slot.</span></div>
                  ) : (
                     <div className="space-y-3">
-                      {students.map(student => (
-                        <div key={student.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex justify-between items-center">
-                           <div className="min-w-0 pr-3">
-                              <h4 className="font-bold text-gray-900 text-lg flex items-center gap-2 truncate"><Icons.User size={16} className="text-blue-500 shrink-0"/> {student.name}</h4>
-                              <p className="text-sm text-gray-600 mt-1 truncate">Grade: {student.grade || 'N/A'}</p>
-                              <p className="text-sm text-gray-600 truncate" title={timezones.find(t=>t.value === student.timeZone)?.label}>TZ: {timezones.find(t=>t.value === student.timeZone)?.label || student.timeZone}</p>
-                              <p className="text-sm text-gray-600 truncate">WhatsApp: {student.whatsapp || 'N/A'}</p>
-                           </div>
-                           <button 
-                             onClick={() => setConfirmDialog({ action: 'deleteStudent', id: student.id, title: 'Remove Student', message: `Are you sure you want to remove ${student.name} from the directory? This will also unassign them from ALL their current slots.` })}
-                             className="p-3 text-red-500 bg-red-50 hover:bg-red-100 rounded-xl transition shrink-0"
-                           >
-                             <Icons.Trash size={20}/>
-                           </button>
-                        </div>
-                      ))}
+                      {students.map(student => {
+                        if (editingStudentInfo && editingStudentInfo.id === student.id) {
+                           return (
+                             <div key={student.id} className="bg-blue-50 p-4 rounded-xl shadow-sm border border-blue-200 space-y-3 animate-[slide-up_0.2s_ease-out]">
+                               <input type="text" value={editingStudentInfo.name} onChange={e => setEditingStudentInfo({...editingStudentInfo, name: e.target.value})} className="w-full p-2 text-sm border border-blue-300 rounded-lg outline-none bg-white font-bold text-gray-800" placeholder="Student Name" />
+                               <input type="text" value={editingStudentInfo.grade} onChange={e => setEditingStudentInfo({...editingStudentInfo, grade: e.target.value})} className="w-full p-2 text-sm border border-blue-300 rounded-lg outline-none bg-white" placeholder="Grade/Level" />
+                               <input type="tel" value={editingStudentInfo.whatsapp} onChange={e => setEditingStudentInfo({...editingStudentInfo, whatsapp: e.target.value})} className="w-full p-2 text-sm border border-blue-300 rounded-lg outline-none bg-white" placeholder="WhatsApp Number" />
+                               <select value={editingStudentInfo.timeZone} onChange={e => setEditingStudentInfo({...editingStudentInfo, timeZone: e.target.value})} className="w-full p-2 text-sm border border-blue-300 rounded-lg outline-none bg-white">
+                                  {timezones.map(tz => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
+                               </select>
+                               <div className="flex justify-end gap-2 mt-2 pt-2 border-t border-blue-200">
+                                   <button onClick={() => setEditingStudentInfo(null)} className="px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm rounded-lg font-medium transition">Cancel</button>
+                                   <button onClick={() => handleUpdateStudent(editingStudentInfo)} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg font-medium shadow-sm transition">Save Changes</button>
+                               </div>
+                             </div>
+                           );
+                        }
+
+                        return (
+                          <div key={student.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex justify-between items-center group">
+                             <div className="min-w-0 pr-3">
+                                <h4 className="font-bold text-gray-900 text-lg flex items-center gap-2 truncate"><Icons.User size={16} className="text-blue-500 shrink-0"/> {student.name}</h4>
+                                <p className="text-sm text-gray-600 mt-1 truncate">Grade: {student.grade || 'N/A'}</p>
+                                <p className="text-sm text-gray-600 truncate" title={timezones.find(t=>t.value === student.timeZone)?.label}>TZ: {timezones.find(t=>t.value === student.timeZone)?.label || student.timeZone}</p>
+                                <p className="text-sm text-gray-600 truncate">WhatsApp: {student.whatsapp || 'N/A'}</p>
+                             </div>
+                             <div className="flex flex-col gap-2 shrink-0">
+                               <button onClick={() => setEditingStudentInfo(student)} className="p-2.5 text-gray-500 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl transition">
+                                 <Icons.Edit size={18}/>
+                               </button>
+                               <button 
+                                 onClick={() => setConfirmDialog({ action: 'deleteStudent', id: student.id, title: 'Remove Student', message: `Are you sure you want to remove ${student.name} from the directory? This will also unassign them from ALL their current slots.` })}
+                                 className="p-2.5 text-red-500 bg-red-50 hover:bg-red-100 border border-red-100 rounded-xl transition shrink-0"
+                               >
+                                 <Icons.Trash size={18}/>
+                               </button>
+                             </div>
+                          </div>
+                        );
+                      })}
                     </div>
                  )}
               </div>
