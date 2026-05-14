@@ -217,7 +217,7 @@
         const dateStr = viewDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
         const dayStr = viewDate.toLocaleDateString('en-US', { weekday: 'long' });
         const timeStr = getStudentTime(sch.startTime, sch.studentTimeZone);
-        const tzLabel = timezones.find(t => t.value === sch.studentTimeZone)?.label.split(' ')[0] || '';
+        const tzLabel = timezones.find(t => t.value === sch.studentTimeZone)?.label || '';
         
         if (sch.isDemo && isBooking) {
           return `${greeting},\nThank you for booking the demo class for Maths.\n\nPlease find the class details below:\n📅 Date: ${dateStr}\n⏰ Time: ${timeStr} (${tzLabel})\n🔗 Meeting Link: ${meetingLink}\n\nKindly ensure that the student joins the session 5 minutes before the scheduled time with:\n✔ Notebook\n✔ Pen/Pencil\n✔ Calculator (if required)\n✔ Previous worksheets/books (if applicable)\n\nThe demo class will help assess the student’s current level, understanding, and learning requirements so that proper planning can be done for future sessions.\nIn case of any issue joining the meeting, please inform me beforehand.\nLooking forward to meeting you and the student.\n\nThanks,\nAmar Bhushan`;
@@ -382,7 +382,7 @@
                    <Icons.Clock size={16} />
                    My Time: {currentTime.toLocaleTimeString('en-US', { timeZone: myTimeZone, hour: '2-digit', minute: '2-digit' })}
                  </div>
-                 <div className="text-xs text-blue-300 truncate max-w-[100px]">{timezones.find(t => t.value === myTimeZone)?.label.split(' ')[0]}</div>
+                 <div className="text-xs text-blue-300 truncate max-w-[150px]" title={timezones.find(t => t.value === myTimeZone)?.label}>{timezones.find(t => t.value === myTimeZone)?.label}</div>
                </div>
                
                <div className="text-sm font-medium text-blue-100 flex items-center justify-between bg-indigo-700/50 p-2 rounded-lg border border-indigo-500/30">
@@ -393,9 +393,9 @@
                  <select 
                    value={headerTz}
                    onChange={(e) => setHeaderTz(e.target.value)}
-                   className="bg-transparent text-xs text-indigo-200 outline-none max-w-[120px] text-right appearance-none font-medium truncate underline underline-offset-2"
+                   className="bg-transparent text-xs text-indigo-200 outline-none max-w-[160px] text-right appearance-none font-medium truncate underline underline-offset-2"
                  >
-                   {timezones.map(tz => <option key={tz.value} value={tz.value} className="text-gray-900">{tz.label.split(' ')[0]}</option>)}
+                   {timezones.map(tz => <option key={tz.value} value={tz.value} className="text-gray-900">{tz.label}</option>)}
                  </select>
                </div>
             </div>
@@ -459,23 +459,37 @@
                                   </div>
                                   
                                   <h4 className={`font-bold truncate text-sm mt-1.5 ${isVacant ? 'text-green-700' : 'text-gray-900'}`}>
-                                    {isVacant ? 'VACANT' : sch.studentName}
-                                  </h4>
-                                </div>
-                                
-                                <div className="mt-3 flex justify-between items-center">
-                                  <span className={`text-[10px] px-2 py-1 rounded font-semibold uppercase ${slotDef.color}`}>
-                                    {slotDef.name}
-                                  </span>
-                                  {!isVacant && (
-                                    <span className="text-[10px] text-gray-500 font-medium max-w-[70px] truncate">
-                                      {timezones.find(t => t.value === sch.studentTimeZone)?.label.split(' ')[0]}
-                                    </span>
-                                  )}
-                                </div>
+                                  {isVacant ? 'VACANT' : sch.studentName}
+                                </h4>
                               </div>
-                            );
-                          })}
+                              
+                              <div className="mt-3 flex justify-between items-end">
+                                <span className={`text-[10px] px-2 py-1 rounded font-semibold uppercase ${slotDef.color}`}>
+                                  {slotDef.name}
+                                </span>
+                                {isVacant ? (
+                                  <div className="flex flex-col items-end">
+                                    <span className="text-xs font-bold text-indigo-600">
+                                      {getStudentTime(sch.startTime, headerTz)}
+                                    </span>
+                                    <span className="text-[9px] text-indigo-400 font-medium max-w-[100px] truncate" title={timezones.find(t => t.value === headerTz)?.label}>
+                                      {timezones.find(t => t.value === headerTz)?.label}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-col items-end">
+                                    <span className="text-xs font-bold text-blue-700">
+                                      {getStudentTime(sch.startTime, sch.studentTimeZone)}
+                                    </span>
+                                    <span className="text-[9px] text-gray-500 font-medium max-w-[100px] truncate" title={timezones.find(t => t.value === sch.studentTimeZone)?.label}>
+                                      {timezones.find(t => t.value === sch.studentTimeZone)?.label}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
                         </div>
                       )}
                     </div>
@@ -544,7 +558,7 @@
                          </div>
                          <div>
                             <span className="block text-xs text-gray-500">Timezone</span>
-                            <span className="font-medium text-gray-800 truncate block">{timezones.find(t => t.value === selectedSlotDetails.sch.studentTimeZone)?.label.split(' ')[0]}</span>
+                            <span className="font-medium text-gray-800 truncate block" title={timezones.find(t => t.value === selectedSlotDetails.sch.studentTimeZone)?.label}>{timezones.find(t => t.value === selectedSlotDetails.sch.studentTimeZone)?.label}</span>
                          </div>
                       </div>
 
