@@ -211,9 +211,9 @@
         setTimeout(() => setToastMsg(null), 3000);
       };
 
-      const copyToClipboard = (text) => {
+      const copyToClipboard = (text, customMsg = "Copied to clipboard!") => {
         if (navigator.clipboard && window.isSecureContext) {
-            navigator.clipboard.writeText(text).then(() => showToast("Copied to clipboard!"));
+            navigator.clipboard.writeText(text).then(() => showToast(customMsg));
         } else {
             let textArea = document.createElement("textarea");
             textArea.value = text;
@@ -221,7 +221,7 @@
             document.body.appendChild(textArea);
             textArea.focus();
             textArea.select();
-            try { document.execCommand('copy'); showToast("Copied to clipboard!"); } 
+            try { document.execCommand('copy'); showToast(customMsg); } 
             catch (err) { showToast("Failed to copy"); }
             textArea.remove();
         }
@@ -757,10 +757,10 @@
                                  const phone = selectedSlotDetails.sch.whatsapp.replace(/\D/g,'');
                                  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
                                } else {
-                                 showToast("No WhatsApp number provided");
+                                 copyToClipboard(msg, "No WhatsApp. Copied to clipboard!");
                                }
                              }}
-                             className={`flex items-center justify-center gap-2 py-2 rounded-lg font-bold text-sm transition ${selectedSlotDetails.sch.whatsapp ? 'bg-yellow-100 text-yellow-800 border border-yellow-300 hover:bg-yellow-200' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+                             className="flex items-center justify-center gap-2 py-2 rounded-lg font-bold text-sm transition bg-yellow-100 text-yellow-800 border border-yellow-300 hover:bg-yellow-200"
                            >
                               <Icons.MessageCircle size={16}/> Send Demo Booking Details
                            </button>
@@ -773,10 +773,10 @@
                                  const phone = selectedSlotDetails.sch.whatsapp.replace(/\D/g,'');
                                  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
                                } else {
-                                 showToast("No WhatsApp number provided");
+                                 copyToClipboard(msg, "No WhatsApp. Copied to clipboard!");
                                }
                              }}
-                             className={`flex items-center justify-center gap-2 py-2 rounded-lg font-medium text-sm transition ${selectedSlotDetails.sch.whatsapp ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+                             className="flex items-center justify-center gap-2 py-2 rounded-lg font-medium text-sm transition bg-green-500 text-white hover:bg-green-600"
                            >
                               <Icons.MessageCircle size={16}/> Send Reminder
                            </button>
