@@ -64,6 +64,17 @@
     ];
 
     const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const POSTER_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']; // Fixed: Start poster week on Monday
+
+    const getTzDiffMinutes = (tz1, tz2, date) => {
+        try {
+            const d1 = new Date(date.toLocaleString('en-US', { timeZone: tz1 }));
+            const d2 = new Date(date.toLocaleString('en-US', { timeZone: tz2 }));
+            return (d2.getTime() - d1.getTime()) / 60000;
+        } catch(e) {
+            return 0;
+        }
+    };
 
     const Icons = {
       Plus: ({size=24, className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>,
@@ -128,7 +139,6 @@
         const saved = localStorage.getItem('amar_schedules');
         let parsed = saved ? JSON.parse(saved) : [];
         
-        // Migration: Automatically split any legacy "Every Day" slots into 7 independent slots
         const hasLegacyAll = parsed.some(s => s.dayOfWeek === 'all');
         if (hasLegacyAll) {
             let newSch = [];
@@ -221,30 +231,31 @@
         return Array.from({ length: 7 }).map((_, i) => addDays(selectedWeekStart, i));
       }, [selectedWeekStart]);
 
-      const getStudentTime = (myTimeStr, studentTz) => {
+      // Bulletproof time calculation bridging myTimeZone directly to Target Timezone
+      const getStudentTime = (myTimeStr, targetTz) => {
         try {
           const [hours, minutes] = myTimeStr.split(':');
-          const date = new Date();
-          date.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0);
-          return new Intl.DateTimeFormat('en-US', { timeZone: studentTz, hour: '2-digit', minute: '2-digit', hour12: true }).format(date);
+          const diffMinutes = getTzDiffMinutes(myTimeZone, targetTz, new Date());
+          const targetDate = new Date();
+          targetDate.setHours(parseInt(hours, 10), parseInt(minutes, 10) + diffMinutes, 0, 0);
+          return targetDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
         } catch (e) {
           return 'Invalid Time';
         }
       };
 
-      const getTimeRange = (startStr, endStr, tz) => {
-         return `${getStudentTime(startStr, tz)} - ${getStudentTime(endStr, tz)}`;
-      };
-
+      // Bulletproof day + time calculation bridging myTimeZone directly to Target Timezone
       const getTargetDayAndTime = (timeStr, targetTz, baseDate) => {
         try {
           const [hours, minutes] = timeStr.split(':');
-          const date = new Date(baseDate);
-          date.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0);
+          const diffMinutes = getTzDiffMinutes(myTimeZone, targetTz, baseDate);
           
-          const time = new Intl.DateTimeFormat('en-US', { timeZone: targetTz, hour: '2-digit', minute: '2-digit', hour12: true }).format(date);
-          const day = new Intl.DateTimeFormat('en-US', { timeZone: targetTz, weekday: 'long' }).format(date);
-          return { day, time, sortVal: date.getTime() };
+          const targetDate = new Date(baseDate);
+          targetDate.setHours(parseInt(hours, 10), parseInt(minutes, 10) + diffMinutes, 0, 0);
+          
+          const time = targetDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+          const day = targetDate.toLocaleDateString('en-US', { weekday: 'long' });
+          return { day, time, sortVal: targetDate.getTime() };
         } catch (e) {
           return { day: 'Unknown', time: 'Invalid', sortVal: 0 };
         }
@@ -287,10 +298,8 @@
         const oldStudent = students.find(s => s.id === updatedStudent.id);
         if (!oldStudent) return;
 
-        // Update the student in the directory
         setStudents(students.map(s => s.id === updatedStudent.id ? updatedStudent : s));
 
-        // Globally update this student's details in ALL their existing slots
         setSchedules(schedules.map(sch => {
             if (sch.studentName && sch.studentName.toLowerCase() === oldStudent.name.toLowerCase()) {
                 return {
@@ -312,7 +321,6 @@
         e.preventDefault();
         const payload = { ...formData, isDemo: formData.isDemo || false };
         
-        // Auto-add or update student in the directory
         if (payload.studentName.trim()) {
            const existingIdx = students.findIndex(s => s.name.toLowerCase() === payload.studentName.trim().toLowerCase());
            const studentObj = {
@@ -333,7 +341,6 @@
 
         let newSchedules = [...schedules];
 
-        // Process creation or editing, splitting "all" into independent days
         if (editingScheduleId) {
              if (payload.dayOfWeek === 'all') {
                  newSchedules = newSchedules.filter(s => s.id !== editingScheduleId);
@@ -391,7 +398,6 @@
         showToast("Category Deleted");
       };
 
-      // Helper function to execute the action after user confirms
       const handleConfirmAction = () => {
         if (!confirmDialog) return;
         if (confirmDialog.action === 'delete') {
@@ -403,13 +409,12 @@
         } else if (confirmDialog.action === 'deleteStudent') {
           handleDeleteStudent(confirmDialog.id);
         }
-        setConfirmDialog(null); // Close the dialog after execution
+        setConfirmDialog(null);
       };
 
       const handleDeleteStudent = (studentId) => {
         const student = students.find(s => s.id === studentId);
         if(student) {
-            // Unassign from all existing slots globally
             setSchedules(schedules.map(sch => 
                 sch.studentName.toLowerCase() === student.name.toLowerCase() 
                 ? { ...sch, studentName: '', grade: '', whatsapp: '', isDemo: false } 
@@ -442,7 +447,7 @@
         setFormData(schedule);
         setEditingScheduleId(schedule.id);
         setIsAddModalOpen(true);
-        setSelectedSlotDetails(null); // Close details pop to show edit
+        setSelectedSlotDetails(null);
       };
 
       const getSlotsForDate = (date) => {
@@ -450,14 +455,8 @@
         const dateStr = toDateString(date);
         
         return schedules.filter(sch => {
-          // Check if slot belongs to this date
-          const matchesDate = 
-            sch.dayOfWeek === dayStr || 
-            (sch.dayOfWeek === 'exact' && sch.exactDate === dateStr);
-            
-          // Check if slot matches category filter
+          const matchesDate = sch.dayOfWeek === dayStr || (sch.dayOfWeek === 'exact' && sch.exactDate === dateStr);
           const matchesFilter = activeSlotFilter === 'all' || sch.slotTypeId === activeSlotFilter;
-          
           return matchesDate && matchesFilter;
         }).sort((a, b) => a.startTime.localeCompare(b.startTime));
       };
@@ -495,7 +494,6 @@
                console.log("Share cancelled or failed");
             }
         } else {
-            // Fallback for devices that don't support native share
             const link = document.createElement('a');
             link.href = generatedImage;
             link.download = 'Available_Slots.png';
@@ -507,11 +505,11 @@
          const vacant = schedules.filter(s => (!s.studentName || s.studentName.trim() === '') && (shareConfig.category === 'all' || s.slotTypeId === shareConfig.category));
          
          const grouped = {};
-         DAYS_OF_WEEK.forEach(day => { grouped[day] = []; });
+         // Map over POSTER_DAYS so we explicitly build the data sorted Mon-Sun
+         POSTER_DAYS.forEach(day => { grouped[day] = []; });
          
          vacant.forEach(s => {
             if(s.dayOfWeek !== 'exact' && s.dayOfWeek !== 'all') {
-               // Fix: Find the exact matching date from the current week instead of just adding days
                const baseDate = weekDates.find(d => d.getDay().toString() === s.dayOfWeek);
                if (!baseDate) return;
 
@@ -528,7 +526,6 @@
             }
          });
          
-         // Sort times in each day
          Object.keys(grouped).forEach(k => {
             grouped[k].sort((a, b) => a.sortVal - b.sortVal);
          });
@@ -538,19 +535,16 @@
       return (
         <div className="flex flex-col h-screen bg-gray-100 font-sans text-gray-900 w-full max-w-md mx-auto relative overflow-hidden shadow-2xl ring-1 ring-gray-200">
           
-          {/* Toast Notification */}
           {toastMsg && (
             <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-full shadow-lg z-50 text-sm font-medium animate-bounce">
               {toastMsg}
             </div>
           )}
 
-          {/* Header */}
           <header className="bg-blue-600 text-white p-4 shadow-md sticky top-0 z-10 safe-top">
             <div className="flex justify-between items-center mb-2">
               <h1 className="text-xl font-bold tracking-tight">Amar's Schedule</h1>
               <div className="flex gap-1.5 sm:gap-2 relative items-center">
-                {/* Category Dropdown */}
                 <select 
                   value={activeSlotFilter}
                   onChange={(e) => setActiveSlotFilter(e.target.value)}
@@ -583,7 +577,6 @@
               </div>
             </div>
             
-            {/* Dual Timezone Display */}
             <div className="flex flex-col gap-1 mt-3">
                <div className="text-sm font-medium text-blue-100 flex items-center justify-between bg-blue-700/50 p-2 rounded-lg">
                  <div className="flex items-center gap-1">
@@ -609,10 +602,7 @@
             </div>
           </header>
 
-          {/* Main Content Area - Vertical Days & Horizontal Slots */}
           <div className="flex-1 overflow-y-auto flex flex-col pb-24">
-            
-            {/* Vertical Week List */}
             <div className="p-4 flex flex-col gap-5 relative z-0">
               {weekDates.map(date => {
                 const daySlots = getSlotsForDate(date);
@@ -621,7 +611,6 @@
                 return (
                   <div key={date.toString()} className={`bg-white rounded-2xl border ${isToday ? 'border-blue-300 shadow-md ring-1 ring-blue-100' : 'border-gray-200 shadow-sm'} overflow-hidden flex flex-col`}>
                     
-                    {/* Day Header */}
                     <div className={`px-4 py-3 border-b flex justify-between items-center ${isToday ? 'bg-blue-50' : 'bg-gray-50'}`}>
                       <div className="flex-1 min-w-0 pr-3">
                         <h3 className={`font-bold truncate text-base sm:text-lg ${isToday ? 'text-blue-700' : 'text-gray-800'}`}>
@@ -637,7 +626,6 @@
                       </button>
                     </div>
 
-                    {/* Horizontal Slots List */}
                     <div className="p-3 sm:p-4 bg-white relative z-0">
                       {daySlots.length === 0 ? (
                         <div className="text-center py-6 text-sm text-gray-400 font-medium">No slots created</div>
@@ -676,7 +664,6 @@
                                     {slotDef.name}
                                   </span>
                                   
-                                  {/* Bottom Right Alignment for their time */}
                                   <div className="w-full flex justify-end mt-0.5">
                                     {isVacant ? (
                                       <div className="flex flex-col items-end">
@@ -705,7 +692,6 @@
             </div>
           </div>
 
-          {/* Floating Add Button */}
           <button 
             onClick={() => openAddModal()}
             className="absolute bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg shadow-blue-300 flex items-center justify-center hover:bg-blue-700 hover:scale-105 active:scale-95 transition-all z-20"
@@ -713,20 +699,15 @@
             <Icons.Plus size={28} />
           </button>
 
-          {}
           {selectedSlotDetails && (
             <div className="fixed inset-0 bg-black/60 z-50 flex flex-col justify-end sm:justify-center sm:p-4 backdrop-blur-sm">
               <div className="bg-white w-full sm:max-w-md sm:mx-auto rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col animate-[slide-up_0.2s_ease-out]">
-                
-                {/* Header */}
                 <div className="flex justify-between items-center p-4 border-b">
                   <h2 className="text-xl font-bold text-gray-800">Slot Details</h2>
                   <button onClick={() => setSelectedSlotDetails(null)} className="p-2 bg-gray-100 rounded-full text-gray-600"><Icons.X size={20} /></button>
                 </div>
                 
-                {/* Content */}
                 <div className="p-5 space-y-4">
-                  {/* Slot Time & Date Info */}
                   <div className="bg-gray-50 rounded-xl p-4 border">
                     <div className="text-sm text-gray-500 font-medium mb-1 flex items-center gap-2">
                        <Icons.Calendar size={16}/> 
@@ -741,7 +722,6 @@
                     </div>
                   </div>
 
-                  {/* Student Info */}
                   {!selectedSlotDetails.sch.studentName ? (
                      <div className="p-4 bg-green-50 border border-green-200 rounded-xl flex justify-between items-center">
                         <span className="font-bold text-green-700">This slot is VACANT</span>
@@ -768,7 +748,6 @@
                          </div>
                       </div>
 
-                      {/* Actions */}
                       <div className="mt-4 flex flex-col gap-2">
                          {selectedSlotDetails.sch.isDemo && (
                            <button 
@@ -813,7 +792,6 @@
                   )}
                 </div>
                 
-                {/* Footer Admin Actions */}
                 <div className="p-4 bg-gray-50 border-t flex justify-between pb-safe">
                    <button onClick={() => setConfirmDialog({ action: 'delete', id: selectedSlotDetails.sch.id, title: 'Delete Slot', message: 'Are you sure you want to permanently delete this time slot?' })} className="text-red-500 font-medium px-4 py-2 hover:bg-red-50 rounded-lg flex items-center gap-1 text-sm"><Icons.Trash size={16}/> Delete Slot</button>
                    <div className="flex gap-2">
@@ -827,7 +805,6 @@
             </div>
           )}
 
-          {/* Confirmation Dialog Popup */}
           {confirmDialog && (
             <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
               <div className="bg-white w-full max-w-sm rounded-2xl shadow-xl p-6 animate-[slide-up_0.2s_ease-out]">
@@ -851,7 +828,6 @@
             </div>
           )}
 
-          {/* isAddModalOpen block begins */}
           {isAddModalOpen && (
             <div className="fixed inset-0 bg-black/60 z-[60] flex flex-col justify-end sm:justify-center sm:p-4 backdrop-blur-sm">
               <div className="bg-white w-full sm:max-w-md sm:mx-auto rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
@@ -862,8 +838,6 @@
                 
                 <div className="overflow-y-auto p-4 flex-1">
                   <form id="schedule-form" onSubmit={handleSaveSchedule} className="space-y-4">
-                    
-                    {/* Occurence / Type */}
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Repeats / Occurs</label>
@@ -889,7 +863,6 @@
                       </div>
                     </div>
 
-                    {/* Exact Date Picker if selected */}
                     {formData.dayOfWeek === 'exact' && (
                        <div className="bg-blue-50 p-3 rounded-xl border border-blue-200 animate-pulse">
                          <label className="block text-sm font-bold text-blue-800 mb-1">Select Exact Date</label>
@@ -902,7 +875,6 @@
                        </div>
                     )}
 
-                    {/* Timings */}
                     <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
                       <div className="flex justify-between items-center mb-2">
                         <h4 className="text-sm font-bold text-gray-700">Timings (My Time)</h4>
@@ -924,7 +896,6 @@
                       </div>
                     </div>
 
-                    {/* Student Details section */}
                     <div className="pt-2 border-t">
                       <div className="flex justify-between items-center mb-2">
                         <label className="block text-sm font-bold text-gray-800">Student Assignment</label>
@@ -932,7 +903,6 @@
                       </div>
                       
                       <div className="space-y-3">
-                         {/* Student Name Input with Custom Dropdown */}
                          <div className="relative">
                            <input 
                              type="text" 
@@ -974,7 +944,6 @@
                            )}
                          </div>
                          
-                         {/* Extra fields only if student is assigned */}
                          {formData.studentName && (
                            <>
                              <label className="flex items-center gap-2 p-3 bg-yellow-50 border border-yellow-300 rounded-xl cursor-pointer">
@@ -1026,12 +995,9 @@
             </div>
           )}
 
-          {}
           {isShareModalOpen && (
             <div className="fixed inset-0 bg-black/70 z-[90] flex flex-col justify-end sm:justify-center sm:p-4 backdrop-blur-sm">
               <div className="bg-gray-100 w-full sm:max-w-md sm:mx-auto rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[95vh] relative overflow-hidden">
-                
-                {/* Header */}
                 <div className="flex justify-between items-center p-4 border-b bg-white">
                   <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2"><Icons.Share size={18}/> Share Vacant Slots</h2>
                   <button onClick={() => setIsShareModalOpen(false)} className="p-2 bg-gray-100 rounded-full text-gray-600"><Icons.X size={20} /></button>
@@ -1083,15 +1049,12 @@
                       </div>
                    )}
                 </div>
-
               </div>
             </div>
           )}
 
-          {}
           <div className="fixed -left-[4000px] top-0 pointer-events-none">
              <div ref={sharePosterRef} className="w-[600px] bg-white p-8 rounded-3xl shadow-2xl flex flex-col">
-                {/* Poster Header */}
                 <div className="bg-gradient-to-r from-blue-700 to-indigo-800 rounded-2xl p-6 text-white mb-6 shadow-md">
                    <h1 className="text-3xl font-extrabold tracking-tight mb-1">Available Class Slots</h1>
                    <h2 className="text-xl font-medium text-blue-100 flex items-center gap-2"><Icons.User size={20}/> Amar Bhushan</h2>
@@ -1101,9 +1064,9 @@
                    </div>
                 </div>
                 
-                {/* Poster Body / Grid */}
                 <div className="flex-1 space-y-4">
-                   {DAYS_OF_WEEK.map((day, idx) => {
+                   {/* Iterating over POSTER_DAYS to ensure Monday is displayed first */}
+                   {POSTER_DAYS.map((day, idx) => {
                       const dayVacant = getVacantSlotsForPoster()[day];
                       if(!dayVacant || dayVacant.length === 0) return null;
                       
@@ -1130,14 +1093,12 @@
                    )}
                 </div>
 
-                {/* Poster Footer */}
                 <div className="mt-8 text-center text-gray-500 font-medium text-sm pt-4 border-t border-gray-100">
                    Generated via Amar's Schedule • Message to confirm your booking!
                 </div>
              </div>
           </div>
 
-          {/* isAddModalOpen block begins */}
           {isSettingsOpen && (
             <div className="fixed inset-0 bg-gray-100 z-[70] flex flex-col">
               <div className="bg-white border-b px-4 py-4 flex items-center gap-4 safe-top shadow-sm">
@@ -1224,7 +1185,6 @@
             </div>
           )}
 
-          {/* isStudentsModalOpen block begins */}
           {isStudentsModalOpen && (
             <div className="fixed inset-0 bg-gray-100 z-[75] flex flex-col">
               <div className="bg-white border-b px-4 py-4 flex items-center gap-4 safe-top shadow-sm">
