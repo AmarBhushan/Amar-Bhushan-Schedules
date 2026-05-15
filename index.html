@@ -511,7 +511,10 @@
          
          vacant.forEach(s => {
             if(s.dayOfWeek !== 'exact' && s.dayOfWeek !== 'all') {
-               const baseDate = addDays(selectedWeekStart, parseInt(s.dayOfWeek));
+               // Fix: Find the exact matching date from the current week instead of just adding days
+               const baseDate = weekDates.find(d => d.getDay().toString() === s.dayOfWeek);
+               if (!baseDate) return;
+
                const startInfo = getTargetDayAndTime(s.startTime, shareConfig.tz, baseDate);
                const endInfo = getTargetDayAndTime(s.endTime, shareConfig.tz, baseDate);
                
