@@ -5,10 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Amar Bhushan Schedule</title>
   
+  <!-- Stable Production CDNs -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.6/babel.min.js" crossorigin></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
   <style>
@@ -64,7 +65,7 @@
     ];
 
     const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const POSTER_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']; // Fixed: Start poster week on Monday
+    const POSTER_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']; 
 
     const getTzDiffMinutes = (tz1, tz2, date) => {
         try {
@@ -111,54 +112,88 @@
     };
 
     function App() {
-      const [myTimeZone, setMyTimeZone] = useState(() => localStorage.getItem('amar_myTz') || 'Asia/Kolkata');
-      const [headerTz, setHeaderTz] = useState(() => localStorage.getItem('amar_headerTz') || 'Australia/Sydney');
-      const [meetingLink, setMeetingLink] = useState(() => localStorage.getItem('amar_meetingLink') || '');
+      const [myTimeZone, setMyTimeZone] = useState(() => {
+        try { return localStorage.getItem('amar_myTz') || 'Asia/Kolkata'; } catch(e) { return 'Asia/Kolkata'; }
+      });
+      const [headerTz, setHeaderTz] = useState(() => {
+        try { return localStorage.getItem('amar_headerTz') || 'Australia/Sydney'; } catch(e) { return 'Australia/Sydney'; }
+      });
+      const [meetingLink, setMeetingLink] = useState(() => {
+        try { return localStorage.getItem('amar_meetingLink') || ''; } catch(e) { return ''; }
+      });
       
       const [selectedWeekStart, setSelectedWeekStart] = useState(startOfWeek(new Date()));
       const [activeSlotFilter, setActiveSlotFilter] = useState('all');
       
       const [toastMsg, setToastMsg] = useState(null);
 
+      // Wrapped in try/catch to preserve existing data securely
       const [slotDefinitions, setSlotDefinitions] = useState(() => {
-        const saved = localStorage.getItem('amar_slotDefs');
-        return saved ? JSON.parse(saved) : DEFAULT_SLOT_TYPES;
+        try {
+          const saved = localStorage.getItem('amar_slotDefs');
+          return saved ? JSON.parse(saved) : DEFAULT_SLOT_TYPES;
+        } catch (e) {
+          console.error("Storage issue in slotDefs, loading default.", e);
+          return DEFAULT_SLOT_TYPES;
+        }
       });
 
       const [timezones, setTimezones] = useState(() => {
-        const saved = localStorage.getItem('amar_timezones');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          const missing = DEFAULT_TIMEZONES.filter(d => !parsed.some(p => p.value === d.value));
-          return [...parsed, ...missing];
+        try {
+          const saved = localStorage.getItem('amar_timezones');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed)) {
+                const missing = DEFAULT_TIMEZONES.filter(d => !parsed.some(p => p.value === d.value));
+                return [...parsed, ...missing];
+            }
+          }
+          return DEFAULT_TIMEZONES;
+        } catch (e) {
+          console.error("Storage issue in timezones, loading default.", e);
+          return DEFAULT_TIMEZONES;
         }
-        return DEFAULT_TIMEZONES;
       });
 
       const [schedules, setSchedules] = useState(() => {
-        const saved = localStorage.getItem('amar_schedules');
-        let parsed = saved ? JSON.parse(saved) : [];
-        
-        const hasLegacyAll = parsed.some(s => s.dayOfWeek === 'all');
-        if (hasLegacyAll) {
-            let newSch = [];
-            parsed.forEach(s => {
-                if (s.dayOfWeek === 'all') {
-                    DAYS_OF_WEEK.forEach((_, idx) => {
-                        newSch.push({ ...s, dayOfWeek: idx.toString(), id: s.id + '_split_' + idx });
-                    });
-                } else {
-                    newSch.push(s);
-                }
-            });
-            parsed = newSch;
+        try {
+          const saved = localStorage.getItem('amar_schedules');
+          if (!saved) return [];
+          
+          let parsed = JSON.parse(saved);
+          if (!Array.isArray(parsed)) return [];
+          
+          const hasLegacyAll = parsed.some(s => s && s.dayOfWeek === 'all');
+          if (hasLegacyAll) {
+              let newSch = [];
+              parsed.forEach(s => {
+                  if (s && s.dayOfWeek === 'all') {
+                      DAYS_OF_WEEK.forEach((_, idx) => {
+                          newSch.push({ ...s, dayOfWeek: idx.toString(), id: s.id + '_split_' + idx });
+                      });
+                  } else if (s) {
+                      newSch.push(s);
+                  }
+              });
+              parsed = newSch;
+          }
+          return parsed;
+        } catch (e) {
+          console.error("Storage issue in schedules, starting fresh.", e);
+          return [];
         }
-        return parsed;
       });
 
       const [students, setStudents] = useState(() => {
-        const saved = localStorage.getItem('amar_students');
-        return saved ? JSON.parse(saved) : [];
+        try {
+          const saved = localStorage.getItem('amar_students');
+          if (!saved) return [];
+          const parsed = JSON.parse(saved);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+          console.error("Storage issue in students, starting fresh.", e);
+          return [];
+        }
       });
 
       const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -197,13 +232,17 @@
       }, []);
 
       useEffect(() => {
-        localStorage.setItem('amar_schedules', JSON.stringify(schedules));
-        localStorage.setItem('amar_slotDefs', JSON.stringify(slotDefinitions));
-        localStorage.setItem('amar_timezones', JSON.stringify(timezones));
-        localStorage.setItem('amar_students', JSON.stringify(students));
-        localStorage.setItem('amar_myTz', myTimeZone);
-        localStorage.setItem('amar_headerTz', headerTz);
-        localStorage.setItem('amar_meetingLink', meetingLink);
+        try {
+            localStorage.setItem('amar_schedules', JSON.stringify(schedules));
+            localStorage.setItem('amar_slotDefs', JSON.stringify(slotDefinitions));
+            localStorage.setItem('amar_timezones', JSON.stringify(timezones));
+            localStorage.setItem('amar_students', JSON.stringify(students));
+            localStorage.setItem('amar_myTz', myTimeZone);
+            localStorage.setItem('amar_headerTz', headerTz);
+            localStorage.setItem('amar_meetingLink', meetingLink);
+        } catch (e) {
+            console.error("Failed to save data to local storage", e);
+        }
       }, [schedules, slotDefinitions, timezones, students, myTimeZone, headerTz, meetingLink]);
 
       const showToast = (msg) => {
@@ -231,7 +270,6 @@
         return Array.from({ length: 7 }).map((_, i) => addDays(selectedWeekStart, i));
       }, [selectedWeekStart]);
 
-      // Bulletproof time calculation bridging myTimeZone directly to Target Timezone
       const getStudentTime = (myTimeStr, targetTz) => {
         try {
           const [hours, minutes] = myTimeStr.split(':');
@@ -244,7 +282,6 @@
         }
       };
 
-      // Bulletproof day + time calculation bridging myTimeZone directly to Target Timezone
       const getTargetDayAndTime = (timeStr, targetTz, baseDate) => {
         try {
           const [hours, minutes] = timeStr.split(':');
@@ -505,7 +542,6 @@
          const vacant = schedules.filter(s => (!s.studentName || s.studentName.trim() === '') && (shareConfig.category === 'all' || s.slotTypeId === shareConfig.category));
          
          const grouped = {};
-         // Map over POSTER_DAYS so we explicitly build the data sorted Mon-Sun
          POSTER_DAYS.forEach(day => { grouped[day] = []; });
          
          vacant.forEach(s => {
@@ -1065,7 +1101,6 @@
                 </div>
                 
                 <div className="flex-1 space-y-4">
-                   {/* Iterating over POSTER_DAYS to ensure Monday is displayed first */}
                    {POSTER_DAYS.map((day, idx) => {
                       const dayVacant = getVacantSlotsForPoster()[day];
                       if(!dayVacant || dayVacant.length === 0) return null;
